@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     framer_field_title: str = "J9QaRrBR5"
     framer_field_excerpt: str = "CuiJCY8aB"
     framer_field_content: str = "SZLKAQXiQ"
+    framer_base_url: str = "https://lawxy-times.framer.website"
 
     # Medium Integration API
     medium_integration_token: str | None = None

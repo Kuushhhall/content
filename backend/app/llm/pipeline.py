@@ -11,6 +11,7 @@ from app.llm.prompts import (
     linkedin as li_prompts,
     medium as medium_prompts,
     reddit as reddit_prompts,
+    instagram as insta_prompts,
     system,
     x_twitter as x_prompts,
 )
@@ -21,7 +22,7 @@ from app.state.store import StateStore
 
 log = logging.getLogger(__name__)
 
-Platform = Literal["linkedin", "x", "reddit", "framer", "medium"]
+Platform = Literal["linkedin", "x", "reddit", "framer", "medium", "instagram"]
 
 
 def _client(settings: Settings) -> OpenAI:

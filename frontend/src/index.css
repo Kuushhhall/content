@@ -17,8 +17,10 @@
   --dim-rgb: 100, 116, 139;
   --success-rgb: 16, 185, 129;
   --danger-rgb: 239, 68, 68;
+  --info-rgb: 6, 182, 212;
+  --warning-rgb: 245, 158, 11;
   
-  --shadow-card: 0 4px 24px rgba(0,0,0,0.6);
+  --shadow-card: 0 4px 64px rgba(0,0,0,0.6);
   --shadow-glow-volt: 0 0 20px rgba(0, 242, 255, 0.15);
   --shadow-glow-volt-muted: 0 0 20px rgba(0, 242, 255, 0.05);
 }
@@ -35,6 +37,8 @@
   --dim-rgb: 71, 85, 105;
   --success-rgb: 5, 150, 105;
   --danger-rgb: 220, 38, 38;
+  --info-rgb: 8, 145, 178;
+  --warning-rgb: 217, 119, 6;
 
   --shadow-card: 0 10px 40px -10px rgba(0,0,0,0.08);
   --shadow-glow-volt: 0 4px 12px rgba(13, 148, 136, 0.1);

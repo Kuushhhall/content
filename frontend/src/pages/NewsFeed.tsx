@@ -283,19 +283,19 @@ export function NewsFeed() {
                     </div>
 
                     {/* Full Analysis / Body */}
-                    {modalArticle.full_content && (
-                      <div className="space-y-4">
-                         <div className="flex items-center gap-3">
-                           <div className="h-1 w-8 rounded-full bg-amethyst" />
-                           <span className="text-[11px] font-black uppercase tracking-[0.2em] text-amethyst">Full Intelligence Report</span>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-1 w-8 rounded-full ${modalArticle.full_content ? 'bg-amethyst' : 'bg-dim/20'}`} />
+                          <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${modalArticle.full_content ? 'text-amethyst' : 'text-muted'}`}>
+                            {modalArticle.full_content ? 'Full Intelligence Report' : 'Expanded Intelligence Summary'}
+                          </span>
                         </div>
                         <div className={`prose max-w-none transition-colors duration-500 ${isDarkMode ? 'prose-invert' : 'prose-slate'}`}>
                           <p className="text-base leading-relaxed text-muted whitespace-pre-wrap">
-                            {modalArticle.full_content}
+                            {modalArticle.full_content || modalArticle.structured_summary || modalArticle.summary_hint || "Deep intelligence scan pending for this entry."}
                           </p>
                         </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Sidebar stats/insights */}

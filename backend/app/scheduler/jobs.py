@@ -1,4 +1,5 @@
 import logging
+import traceback
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -19,21 +20,23 @@ def build_scheduler(settings: Settings, get_store) -> AsyncIOScheduler:
     """
     scheduler = AsyncIOScheduler(timezone=timezone.utc)
 
-    def ingest_tick() -> None:
+    async def ingest_tick() -> None:
         store = get_store()
+        try:
+            log.debug("Job start: ingest")
+            await ingest_workflow.run_ingestion(store, settings)
+            log.debug("Job done: ingest")
+        except Exception:
+            log.error("Job failed: ingest\n%s", traceback.format_exc())
 
-        def _ingest() -> None:
-            ingest_workflow.run_ingestion(store, settings)
-
-        run_safe("ingest", _ingest)
-
-    def publish_tick() -> None:
+    async def publish_tick() -> None:
         store = get_store()
-
-        def _publish() -> None:
+        try:
+            log.debug("Job start: publish_due")
             publish_workflow.run_due_schedules(store, settings)
-
-        run_safe("publish_due", _publish)
+            log.debug("Job done: publish_due")
+        except Exception:
+            log.error("Job failed: publish_due\n%s", traceback.format_exc())
 
     # Cron-style: every N minutes
     scheduler.add_job(
