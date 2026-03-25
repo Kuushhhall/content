@@ -17,10 +17,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path(__file__).resolve().parent.parent.parent / "data"
     state_file: str = "state.json"
 
-    # LLM (OpenAI-compatible: set base_url for Azure/other)
+    # LLM (OpenAI-compatible: works with OpenAI, Groq, Azure, etc.)
     openai_api_key: str | None = None
     openai_base_url: str | None = None
-    llm_model: str = "gpt-4o"
+    llm_model: str = "llama-3.3-70b-versatile"
 
     # Tavily (SCC / web search)
     tavily_api_key: str | None = None
@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     rss_livelaw: str = "https://www.livelaw.in/rss"
     rss_barandbench: str = "https://www.barandbench.com/feed"
     rss_indialegal: str = "https://indialegallive.com/feed/"
+    rss_supreme_court: str = "https://main.sci.gov.in/rss/latest-feed"
+    rss_high_courts: str = "https://www.indiankanoon.org/rss/"
 
     # Scheduler
     ingest_cron_minutes: int = 30

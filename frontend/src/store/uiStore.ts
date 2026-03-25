@@ -14,7 +14,7 @@ type UIState = {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  tab: 'news',
+  tab: 'dashboard',
   selectedArticleId: null,
   selectedDraftId: null,
   scheduleDraftId: null,

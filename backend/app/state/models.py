@@ -9,6 +9,19 @@ from app.models.publish import PublishResult
 from app.models.schedule import ScheduledPost
 
 
+class PipelineRunLog(BaseModel):
+    id: str = ""
+    started_at: str = ""
+    finished_at: str = ""
+    mode: str = "manual"
+    steps: list[dict[str, Any]] = Field(default_factory=list)
+    status: str = "idle"  # idle | running | completed | failed
+    articles_ingested: int = 0
+    drafts_generated: int = 0
+    posts_published: int = 0
+    error: str | None = None
+
+
 class AppStateSnapshot(BaseModel):
     articles: list[dict[str, Any]] = Field(default_factory=list)
     drafts: list[dict[str, Any]] = Field(default_factory=list)
@@ -17,6 +30,8 @@ class AppStateSnapshot(BaseModel):
     llm_article_summaries: dict[str, str] = Field(default_factory=dict)
     engagement_comments: list[dict[str, Any]] = Field(default_factory=list)
     auto_reply_enabled: bool = False
+    pipeline_mode: str = "manual"
+    pipeline_runs: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class RuntimeState:
@@ -28,6 +43,8 @@ class RuntimeState:
         self.llm_article_summaries: dict[str, str] = {}
         self.engagement_comments: dict[str, EngagementComment] = {}
         self.auto_reply_enabled: bool = False
+        self.pipeline_mode: str = "manual"
+        self.pipeline_runs: list[PipelineRunLog] = []
 
     def to_snapshot(self) -> AppStateSnapshot:
         return AppStateSnapshot(
@@ -38,6 +55,8 @@ class RuntimeState:
             llm_article_summaries=dict(self.llm_article_summaries),
             engagement_comments=[c.model_dump(mode="json") for c in self.engagement_comments.values()],
             auto_reply_enabled=self.auto_reply_enabled,
+            pipeline_mode=self.pipeline_mode,
+            pipeline_runs=[r.model_dump(mode="json") for r in self.pipeline_runs[-20:]],
         )
 
     @classmethod
@@ -59,4 +78,7 @@ class RuntimeState:
             c = EngagementComment.model_validate(item)
             rs.engagement_comments[c.id] = c
         rs.auto_reply_enabled = snap.auto_reply_enabled
+        rs.pipeline_mode = snap.pipeline_mode
+        for item in snap.pipeline_runs:
+            rs.pipeline_runs.append(PipelineRunLog.model_validate(item))
         return rs

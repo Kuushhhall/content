@@ -18,6 +18,8 @@ def register_ws_routes(app: FastAPI) -> None:
                     "pendingSchedules": len(store.list_schedules(status="pending")),
                     "recentPublishes": len(store.recent_publish_results(limit=20)),
                     "autoReplyEnabled": store.get_auto_reply_enabled(),
+                    "pipelineMode": store.get_pipeline_mode(),
+                    "pipelineRunning": store.current_pipeline_run() is not None,
                 }
                 await websocket.send_json(payload)
                 await asyncio.sleep(2)

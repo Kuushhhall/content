@@ -1,4 +1,20 @@
-export type TabKey = 'news' | 'studio' | 'scheduler' | 'engagement' | 'analytics'
+export type TabKey = 'dashboard' | 'news' | 'studio' | 'scheduler' | 'engagement' | 'analytics'
+
+export type Platform = 'linkedin' | 'x' | 'reddit' | 'framer' | 'medium'
+
+export type ContentIntelligence = {
+  topic: string
+  legal_area: string
+  audience: string[]
+  angle: string
+  complexity_level: string
+  virality_score: number
+  relevance_score: number
+  key_insights: string[]
+  affected_parties: string[]
+  legal_implications: string[]
+  suggested_hashtags: string[]
+}
 
 export type Article = {
   id: string
@@ -8,6 +24,12 @@ export type Article = {
   summary_hint: string
   published_at: string | null
   kind: string
+  content_intelligence: ContentIntelligence
+  structured_summary: string
+  court_name: string
+  case_number: string
+  jurisdiction: string
+  precedent_value: string
 }
 
 export type Draft = {
@@ -61,4 +83,44 @@ export type StatusFeed = {
   pendingSchedules: number
   recentPublishes: number
   autoReplyEnabled: boolean
+  pipelineMode: string
+  pipelineRunning: boolean
+}
+
+// Pipeline types
+export type PipelineRun = {
+  id: string
+  started_at: string
+  finished_at: string
+  mode: string
+  status: string
+  articles_ingested: number
+  drafts_generated: number
+  posts_published: number
+  error: string | null
+  steps: Array<{ step: string; status: string; at?: string; count?: number; reason?: string }>
+}
+
+export type PipelineStatus = {
+  mode: string
+  current_run: PipelineRun | null
+  recent_runs: PipelineRun[]
+}
+
+export type BatchDraftResult = {
+  article_id: string
+  drafts: Draft[]
+  errors: string[]
+}
+
+export type AutoSelectResult = {
+  article_ids: string[]
+  articles: Article[]
+}
+
+export type EngagementScanResult = {
+  total_comments: number
+  new_comments: number
+  high_intent: number
+  high_intent_ids: string[]
 }

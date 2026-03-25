@@ -6,7 +6,7 @@ from app.models.draft import ContentDraft
 from app.models.engagement import EngagementComment
 from app.models.publish import PublishResult
 from app.models.schedule import ScheduledPost
-from app.state.models import RuntimeState
+from app.state.models import PipelineRunLog, RuntimeState
 from app.state.persistence import load_state, save_state
 
 
@@ -28,7 +28,15 @@ class StateStore:
         return article
 
     def list_articles(self) -> list[NormalizedArticle]:
-        return sorted(self._state.articles.values(), key=lambda a: (a.published_at or a.fetched_at), reverse=True)
+        from datetime import UTC, datetime
+
+        def _sort_key(a: NormalizedArticle) -> datetime:
+            dt = a.published_at or a.fetched_at
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=UTC)
+            return dt.astimezone(UTC)
+
+        return sorted(self._state.articles.values(), key=_sort_key, reverse=True)
 
     def get_article(self, article_id: str) -> NormalizedArticle | None:
         return self._state.articles.get(article_id)
@@ -95,6 +103,36 @@ class StateStore:
 
     def get_auto_reply_enabled(self) -> bool:
         return self._state.auto_reply_enabled
+
+    # --- Pipeline mode ---
+    def set_pipeline_mode(self, mode: str) -> None:
+        self._state.pipeline_mode = mode
+        self._persist()
+
+    def get_pipeline_mode(self) -> str:
+        return self._state.pipeline_mode
+
+    def append_pipeline_run(self, run: PipelineRunLog) -> None:
+        self._state.pipeline_runs.append(run)
+        self._persist()
+
+    def update_pipeline_run(self, run: PipelineRunLog) -> None:
+        for i, r in enumerate(self._state.pipeline_runs):
+            if r.id == run.id:
+                self._state.pipeline_runs[i] = run
+                self._persist()
+                return
+        self._state.pipeline_runs.append(run)
+        self._persist()
+
+    def recent_pipeline_runs(self, limit: int = 10) -> list[PipelineRunLog]:
+        return self._state.pipeline_runs[-limit:]
+
+    def current_pipeline_run(self) -> PipelineRunLog | None:
+        for r in reversed(self._state.pipeline_runs):
+            if r.status == "running":
+                return r
+        return None
 
     @staticmethod
     def new_id(prefix: str = "") -> str:

@@ -45,10 +45,12 @@ def publish(draft: ContentDraft, settings: Settings) -> PublishResult:
         with httpx.Client(timeout=60.0) as client:
             r = client.post(LINKEDIN_UGC_URL, headers=headers, content=json.dumps(payload))
             if r.status_code >= 400:
+                error_msg = f"LinkedIn API error: HTTP {r.status_code}: {r.text[:500]}"
+                log.error(error_msg)
                 return PublishResult(
                     platform="linkedin",
                     success=False,
-                    message=f"HTTP {r.status_code}: {r.text[:500]}",
+                    message=error_msg,
                     raw={"status": r.status_code, "body": r.text[:1000]},
                 )
             data = r.json() if r.text else {}
@@ -59,6 +61,15 @@ def publish(draft: ContentDraft, settings: Settings) -> PublishResult:
                 external_id=pid,
                 raw=data,
             )
+    except httpx.TimeoutException:
+        error_msg = "LinkedIn API request timed out"
+        log.error(error_msg)
+        return PublishResult(platform="linkedin", success=False, message=error_msg)
+    except httpx.HTTPStatusError as e:
+        error_msg = f"LinkedIn API HTTP error: {e.response.status_code} - {e.response.text[:500]}"
+        log.error(error_msg)
+        return PublishResult(platform="linkedin", success=False, message=error_msg)
     except Exception as e:
-        log.exception("LinkedIn publish failed")
-        return PublishResult(platform="linkedin", success=False, message=str(e))
+        error_msg = f"LinkedIn publish failed: {str(e)}"
+        log.exception(error_msg)
+        return PublishResult(platform="linkedin", success=False, message=error_msg)
