@@ -3,6 +3,8 @@ from app.core.config import Settings
 from app.llm.pipeline import _complete
 from app.state.store import StateStore
 
+from app.llm.prompts.system import EDITOR_SYSTEM_PROMPT
+
 Platform = Literal["linkedin", "x", "reddit", "framer", "medium"]
 
 
@@ -13,7 +15,7 @@ class LLMService:
         self.settings = settings
         self.store = store
     
-    async def generate(self, prompt: str, system_prompt: str = "You are a helpful assistant.") -> str:
+    async def generate(self, prompt: str, system_prompt: str = EDITOR_SYSTEM_PROMPT) -> str:
         """Generate text using the LLM"""
         if not self.settings:
             # Return a mock response for testing

@@ -1,25 +1,26 @@
 from app.models.article import NormalizedArticle
+from app.llm.prompts.persona import LAWXY_REPORTER_PERSONA, STRUCTURE_RULES
 
 
 def build_framer_prompt(article: NormalizedArticle, summary: str) -> str:
-    return f"""You are Lawxy Reporter, creating CMS-ready fields for a legal news item in Framer for Legal Content OS.
+    return f"""{LAWXY_REPORTER_PERSONA}
+
+{STRUCTURE_RULES}
+
+Task:
+Create a CMS-ready legal news article.
 
 Output STRICTLY as JSON with keys: title (string), slug_slug (kebab-case string), excerpt (string, 1-2 sentences), body_md (markdown string for rich text).
 
 Rules:
 - Length: 300-400 words in body_md
-- Tone: professional yet slightly fun, engaging for legal professionals
-- Structure: intro, body, conclusion with key facts and implications
-- Include the original URL as a link in body_md
-- Include soft pitch for Lawxy AI in conclusion
-- Add "By Lawxy Reporter" signature at the end of body_md
-- Title should be engaging and professional
+- Tight writing, no filler
+- Include source link once (naturally embedded)
+- End with: "By Lawxy Times Reporter"
 
 Article title: {article.title}
 Source: {article.source}
 URL: {article.url}
 
 Summary:
-{summary}
-
-Remember: You are Lawxy Reporter - make it professional, engaging, and informative while maintaining legal credibility and including a soft pitch for Lawxy AI."""
+{summary}"""

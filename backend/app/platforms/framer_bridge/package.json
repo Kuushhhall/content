@@ -1,0 +1,8 @@
+{
+  "name": "framer-bridge",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "framer-api": "^0.1.4"
+  }
+}

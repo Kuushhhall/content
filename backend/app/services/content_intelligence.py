@@ -5,6 +5,8 @@ import logging
 
 from app.models.article import NormalizedArticle, ContentIntelligence
 from app.llm.service import LLMService
+from app.llm.prompts.intelligence import build_structured_summary_prompt, build_metadata_intelligence_prompt
+from app.llm.prompts.system import EDITOR_SYSTEM_PROMPT, INTELLIGENCE_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -140,23 +142,13 @@ class ContentIntelligenceService:
     
     async def _generate_structured_summary(self, article: NormalizedArticle) -> str:
         """Generate a structured summary of the article"""
-        prompt = f"""
-        Generate a structured summary for this legal article:
-
-        Title: {article.title}
-        Content: {article.full_content[:2000] if article.full_content else article.summary_hint}
-
-        Provide a concise summary (3-4 sentences) that covers:
-        1. What happened (the core legal issue)
-        2. What the court decided
-        3. Why it matters
-        4. Who it affects
-
-        Return only the summary text.
-        """
+        prompt = build_structured_summary_prompt(
+            article_title=article.title,
+            article_content=article.full_content if article.full_content else article.summary_hint
+        )
         
         try:
-            response = await self.llm_service.generate(prompt)
+            response = await self.llm_service.generate(prompt, system_prompt=EDITOR_SYSTEM_PROMPT)
             return response.strip()
         except Exception as e:
             logger.error(f"Error generating structured summary: {e}")
@@ -164,32 +156,14 @@ class ContentIntelligenceService:
     
     async def _generate_content_intelligence(self, article: NormalizedArticle) -> ContentIntelligence:
         """Generate content intelligence metadata"""
-        prompt = f"""
-        Analyze this legal article and provide structured metadata:
-
-        Title: {article.title}
-        Summary: {article.structured_summary}
-        Content: {article.full_content[:3000] if article.full_content else article.summary_hint}
-
-        Provide the following structured information:
-
-        1. Topic (1-3 words): What is the main legal topic?
-        2. Legal Area: Which area of law? (e.g., Constitutional, Contract, Criminal, Corporate, IP, etc.)
-        3. Audience: Who should read this? (e.g., lawyers, startups, students, general public, etc.)
-        4. Angle: What angle should the content take? (e.g., educational, breaking news, opinion, analysis)
-        5. Complexity Level: beginner/intermediate/expert
-        6. Virality Score: 0.0 to 1.0 (how likely to go viral)
-        7. Relevance Score: 0.0 to 1.0 (how relevant to current legal discussions)
-        8. Key Insights: 3-5 bullet points of key takeaways
-        9. Affected Parties: Who is affected by this decision?
-        10. Legal Implications: What are the broader legal implications?
-        11. Suggested Hashtags: 3-5 relevant hashtags
-
-        Return in JSON format with the exact field names.
-        """
+        prompt = build_metadata_intelligence_prompt(
+            article_title=article.title,
+            article_summary=article.structured_summary,
+            article_content=article.full_content if article.full_content else article.summary_hint
+        )
         
         try:
-            response = await self.llm_service.generate(prompt)
+            response = await self.llm_service.generate(prompt, system_prompt=INTELLIGENCE_SYSTEM_PROMPT)
             
             # Parse the response (simple parsing for now)
             intelligence = ContentIntelligence()

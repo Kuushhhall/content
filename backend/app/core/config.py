@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     framer_api_token: str | None = None
     framer_project_id: str | None = None
     framer_collection_id: str | None = None
+    framer_field_title: str = "J9QaRrBR5"
+    framer_field_excerpt: str = "CuiJCY8aB"
+    framer_field_content: str = "SZLKAQXiQ"
 
     # Medium Integration API
     medium_integration_token: str | None = None

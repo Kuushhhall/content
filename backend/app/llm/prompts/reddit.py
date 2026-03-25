@@ -1,31 +1,40 @@
 from app.models.article import NormalizedArticle
+from app.llm.prompts.persona import LAWXY_REPORTER_PERSONA, STRUCTURE_RULES
 
 
 def build_reddit_prompt(article: NormalizedArticle, summary: str) -> str:
-    return f"""You are Lawxy Reporter, creating a Reddit post for r/IndiaLegal (or similar law subreddit) for Legal Content OS.
+    return f"""{LAWXY_REPORTER_PERSONA}
 
-Rules:
-- Line 1: TITLE: <concise title under 300 chars>
-- Then blank line
-- Body: markdown allowed (bullets ok). 2-4 short paragraphs. Include source link once.
-- Include soft pitch for Lawxy AI in conclusion
-- Add "By Lawxy Reporter" signature at the end
-- Tone: professional yet engaging for legal community
+{STRUCTURE_RULES}
 
-Article title: {article.title}
-Source: {article.source}
-URL: {article.url}
+### THE SUBREDDIT ASSIGNMENT
+You are posting to a high-signal legal community (e.g., r/law, r/legaladviceofftopic). They value precision over passion.
 
-Summary:
+### REDDIT STYLE GUIDE
+1. **The Title**: Must be an analytical summary, not a headline. (e.g., "The SCC's ruling on [X] just created a paradox for [Y]").
+2. **The TL;DR**: 2-3 sentences at the top summarizing the 'why'.
+3. **The Analysis**: Break down the most controversial or non-obvious part of the judgment.
+4. **The Discussion Starter**: End with a sharp, professional question or a pattern observation that invites high-level debate.
+
+### PRODUCTION RULES
+- **Tone**: Smart, slightly cynical, insider-voice.
+- **Formatting**: Use Markdown for lists or key bold terms.
+- **Source**: Always include the link ({article.url}).
+- **Closing**: A dry, surgical parting shot.
+
+### SOURCE CONTEXT
+Article: {article.title}
+Base Intelligence:
 {summary}
 
-Remember: You are Lawxy Reporter - make it professional, informative, and include a soft pitch for Lawxy AI."""
+Format:
+TITLE: [Your Case-Analytical Title]
+[Rest of the post body]"""
 
 
 def parse_reddit_title_body(generated: str) -> tuple[str, str]:
     lines = generated.strip().splitlines()
     title = "Legal update"
-    body_lines: list[str] = []
     if lines and lines[0].upper().startswith("TITLE:"):
         title = lines[0].split(":", 1)[1].strip() or title
         lines = lines[1:]

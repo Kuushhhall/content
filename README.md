@@ -44,3 +44,37 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 cd backend
 pytest
 ```
+
+
+cd /c/Users/kushal/Downloads/content-1/backend && .venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 9000 2>&1 &
+
+cd /c/Users/kushal/Downloads/content-1/backend && .venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 9000 2>&1 &
+
+Bash Start backend on port 9000
+IN
+cd /c/Users/kushal/Downloads/content-1/backend && .venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 9000 2>&1 &
+
+OUT
+Command running in background with ID: bwq701jho. Output is being written to: C:\Users\kushal\AppData\Local\Temp\claude\c--Users-kushal-Downloads-content-1\73696d40-8f28-4214-8ace-48ded76ad996\tasks\bwq701jho.output
+Bash Verify backend
+IN
+sleep 4 && curl -s http://localhost:9000/api/health
+
+OUT
+{"status":"ok","app":"Legal Content OS API"}
+Backend is running on http://localhost:9000.
+
+For future reference, the command is:
+
+
+cd backend
+.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 9000
+Backend stopped (likely port 9000 was already in use from a previous instance). Let me check:
+
+Bash Check if backend is still up
+IN
+curl -s http://localhost:9000/api/health 2>&1 || echo "DOWN"
+
+OUT
+{"status":"ok","app":"Legal Content OS API"}
+It's still running — the new process exited because the old one was already on port 9000. You're good.

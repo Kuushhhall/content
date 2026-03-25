@@ -8,6 +8,8 @@ from app.models.article import NormalizedArticle
 from app.llm.pipeline import LLMService
 from app.platforms.dispatch import PlatformDispatcher
 from app.core.logging import get_logger
+from app.llm.prompts.engagement import build_reply_prompt
+from app.llm.prompts.system import RESPONDER_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
 
@@ -73,30 +75,16 @@ class EngagementService:
     
     async def generate_ai_reply(self, comment: Engagement, article: NormalizedArticle) -> str:
         """Generate AI-powered reply to a comment"""
-        prompt = f"""
-        Generate a helpful, human-like reply to this comment on a legal article:
-
-        Article Topic: {article.content_intelligence.topic}
-        Article Summary: {article.structured_summary}
-        
-        Comment: {comment.content}
-        
-        Author: {comment.author}
-        Platform: {comment.platform}
-        
-        Guidelines:
-        1. Be helpful and informative
-        2. Keep it concise (2-3 sentences)
-        3. Add value to the conversation
-        4. Slightly conversational but professional
-        5. Do not mention AI or automation
-        6. If appropriate, suggest checking the full article for more details
-        
-        Return only the reply text.
-        """
+        prompt = build_reply_prompt(
+            article_topic=article.content_intelligence.topic if article.content_intelligence else "Legal Discussion",
+            article_summary=article.structured_summary,
+            comment_content=comment.content,
+            comment_author=comment.author,
+            platform=comment.platform
+        )
         
         try:
-            response = await self.llm_service.generate(prompt)
+            response = await self.llm_service.generate(prompt, system_prompt=RESPONDER_SYSTEM_PROMPT)
             return response.strip()
         except Exception as e:
             logger.error(f"Error generating reply for comment {comment.id}: {e}")

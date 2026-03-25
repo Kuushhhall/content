@@ -1,25 +1,35 @@
 import { create } from 'zustand'
-
-import type { TabKey } from '../types'
+import { persist } from 'zustand/middleware'
 
 type UIState = {
-  tab: TabKey
   selectedArticleId: string | null
   selectedDraftId: string | null
   scheduleDraftId: string | null
-  setTab: (tab: TabKey) => void
+  isMenuOpen: boolean
+  isDarkMode: boolean
   setSelectedArticleId: (id: string | null) => void
   setSelectedDraftId: (id: string | null) => void
   setScheduleDraftId: (id: string | null) => void
+  setMenuOpen: (open: boolean) => void
+  toggleDarkMode: () => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
-  tab: 'dashboard',
-  selectedArticleId: null,
-  selectedDraftId: null,
-  scheduleDraftId: null,
-  setTab: (tab) => set({ tab }),
-  setSelectedArticleId: (selectedArticleId) => set({ selectedArticleId }),
-  setSelectedDraftId: (selectedDraftId) => set({ selectedDraftId }),
-  setScheduleDraftId: (scheduleDraftId) => set({ scheduleDraftId }),
-}))
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      selectedArticleId: null,
+      selectedDraftId: null,
+      scheduleDraftId: null,
+      isMenuOpen: false,
+      isDarkMode: true, // Default to dark mode
+      setSelectedArticleId: (selectedArticleId) => set({ selectedArticleId }),
+      setSelectedDraftId: (selectedDraftId) => set({ selectedDraftId }),
+      setScheduleDraftId: (scheduleDraftId) => set({ scheduleDraftId }),
+      setMenuOpen: (isMenuOpen) => set({ isMenuOpen }),
+      toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
+    }),
+    {
+      name: 'lawxy-ui-storage',
+    }
+  )
+)

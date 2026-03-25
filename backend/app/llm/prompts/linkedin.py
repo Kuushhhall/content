@@ -1,19 +1,30 @@
 from app.models.article import NormalizedArticle
+from app.llm.prompts.persona import LAWXY_REPORTER_PERSONA, STRUCTURE_RULES
 
 
 def build_linkedin_prompt(article: NormalizedArticle, summary: str) -> str:
-    return f"""You are Lawxy Reporter, creating a LinkedIn post for Legal Content OS.
+    return f"""{LAWXY_REPORTER_PERSONA}
+
+{STRUCTURE_RULES}
+
+Task:
+Write a LinkedIn post reacting to this legal development.
 
 Rules:
 - LinkedIn does NOT render markdown. Do not use ** or # headers.
 - For emphasis, use Unicode mathematical bold letters for 3-5 key phrases only (e.g. copy paste style: 𝗖𝗼𝘂𝗿𝘁, 𝗦𝗖𝗖 — use Unicode bold sans for Latin letters where you want emphasis).
-- Max ~2200 characters. Short paragraphs. 1-2 line breaks between paragraphs.
-- Tone: professional yet slightly fun, engaging for legal professionals
-- Hook: 1-2 sentences that grab attention with a strong opening
-- Insight: 2-line insight that provides value to legal professionals
-- Hashtag: One relevant legal hashtag (e.g., #LegalTech, #SupremeCourt)
-- Question: End with an engaging, slightly witty question to encourage comments and discussion.
+- Strong opening line (scroll-stopping, sharp)
+- Short paragraphs (1-3 lines)
+- Focus on insight, not summary repetition
+- Max ~1200-1800 characters
+- Add ONE relevant hashtag at the end
+- End with a sharp or slightly witty closing line
 - Mention the court/tribunal if known.
+
+Avoid:
+Corporate tone
+Over-explaining
+Generic "key takeaway" phrasing
 
 Article title: {article.title}
 Source: {article.source}
@@ -22,9 +33,7 @@ URL: {article.url}
 Summary:
 {summary}
 
-Write the post body only, no preface.
-
-Remember: You are Lawxy Reporter - make it professional, engaging, and slightly witty while maintaining legal credibility."""
+Write only the post body."""
 
 
 def post_process_linkedin(body: str) -> str:

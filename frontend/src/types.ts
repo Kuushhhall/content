@@ -47,6 +47,7 @@ export type Schedule = {
   run_at: string
   status: string
   error: string | null
+  content_preview?: string // Added for better UI list visibility
 }
 
 export type PublishResult = {

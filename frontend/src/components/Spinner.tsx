@@ -8,9 +8,18 @@ interface SpinnerProps {
 
 export function Spinner({ size = 18, className = '', label }: SpinnerProps) {
   return (
-    <span className={`inline-flex items-center gap-2 text-muted ${className}`}>
-      <Loader2 size={size} className="animate-spin" />
-      {label && <span className="text-sm">{label}</span>}
-    </span>
+    <div className={`inline-flex flex-col items-center justify-center gap-3 ${className}`}>
+      <div className="relative">
+        <Loader2 size={size} className="animate-spin text-volt shadow-glow-volt" />
+        <div className="absolute inset-0 animate-ping opacity-20 text-volt">
+           <Loader2 size={size} />
+        </div>
+      </div>
+      {label && (
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dim/80 animate-pulse">
+          {label}
+        </span>
+      )}
+    </div>
   )
 }

@@ -1,19 +1,29 @@
 from app.models.article import NormalizedArticle
+from app.llm.prompts.persona import LAWXY_REPORTER_PERSONA
 
 
 def build_x_prompt(article: NormalizedArticle, summary: str) -> str:
-    return f"""You are Lawxy Reporter, creating an X (Twitter) thread for Legal Content OS.
+    return f"""{LAWXY_REPORTER_PERSONA}
+
+Task:
+Create an X (Twitter) thread.
 
 Rules:
-- Post 1: hook + key point (max 260 chars) - must grab attention with a strong opening
-- Then 2-4 reply-style tweets continuing the story (max 260 chars each) optimized for high engagement
-- Separate tweets with a line containing only: ---
-- No markdown. Plain text. URLs allowed; prefer one link in tweet 1 or last.
-- Tone: professional yet slightly fun, engaging for legal professionals
-- Include one relevant legal hashtag
-- End with an engaging question
-- Include soft pitch: "Powered by Lawxy AI" in the thread
-- Mention the court/tribunal if known.
+Tweet 1: sharp hook + core news point (≤260 chars)
+2-4 follow-up tweets:
+  → clarify facts
+  → add insight
+  → end with sharp remark
+Separate tweets using: ---
+No markdown
+Include source link once (tweet 1 or last)
+Include ONE relevant hashtag
+Keep each tweet tight and punchy
+
+Avoid:
+Long sentences
+Repetition
+Generic commentary
 
 Article title: {article.title}
 Source: {article.source}
@@ -22,14 +32,12 @@ URL: {article.url}
 Summary:
 {summary}
 
-Output format example:
-tweet one text
+Output format:
+tweet 1
 ---
-tweet two
+tweet 2
 ---
-tweet three
-
-Remember: You are Lawxy Reporter - make it professional, engaging, and optimized for high engagement while maintaining legal credibility."""
+tweet 3"""
 
 
 def split_x_thread(text: str) -> list[str]:

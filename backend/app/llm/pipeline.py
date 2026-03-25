@@ -6,11 +6,14 @@ from typing import Literal
 from openai import OpenAI
 
 from app.core.config import Settings
-from app.llm.prompts import framer as framer_prompts
-from app.llm.prompts import linkedin as li_prompts
-from app.llm.prompts import medium as medium_prompts
-from app.llm.prompts import reddit as reddit_prompts
-from app.llm.prompts import x_twitter as x_prompts
+from app.llm.prompts import (
+    framer as framer_prompts,
+    linkedin as li_prompts,
+    medium as medium_prompts,
+    reddit as reddit_prompts,
+    system,
+    x_twitter as x_prompts,
+)
 from app.llm.prompts.base import build_summarize_prompt
 from app.models.article import NormalizedArticle
 from app.models.draft import ContentDraft
@@ -30,7 +33,7 @@ def _client(settings: Settings) -> OpenAI:
     return OpenAI(**kwargs)
 
 
-def _complete(settings: Settings, system: str, user: str) -> str:
+def _complete(settings: Settings, system_msg: str, user: str) -> str:
     if not settings.openai_api_key:
         log.warning("No OPENAI_API_KEY — returning stub LLM output")
         return user[:500] + "\n\n[stub: set OPENAI_API_KEY for real output]"
@@ -38,7 +41,7 @@ def _complete(settings: Settings, system: str, user: str) -> str:
     resp = client.chat.completions.create(
         model=settings.llm_model,
         messages=[
-            {"role": "system", "content": system},
+            {"role": "system", "content": system_msg},
             {"role": "user", "content": user},
         ],
         temperature=0.4,
@@ -52,9 +55,9 @@ def summarize_article(
     cached = store.get_article_summary(article.id)
     if cached:
         return cached
-    system = "You are a precise legal-news editor."
+    system_msg = system.EDITOR_SYSTEM_PROMPT
     user = build_summarize_prompt(article)
-    summary = _complete(settings, system, user)
+    summary = _complete(settings, system_msg, user)
     store.set_article_summary(article.id, summary)
     return summary
 
@@ -67,9 +70,9 @@ def generate_draft(
     draft_id: str | None = None,
 ) -> ContentDraft:
     summary = summarize_article(store, settings, article)
-    system = "Follow instructions exactly. Output only what is asked."
+    system_msg = system.GENERATOR_SYSTEM_PROMPT
     if platform == "linkedin":
-        body = _complete(settings, system, li_prompts.build_linkedin_prompt(article, summary))
+        body = _complete(settings, system_msg, li_prompts.build_linkedin_prompt(article, summary))
         body = li_prompts.post_process_linkedin(body)
     elif platform == "x":
         raw = _complete(settings, system, x_prompts.build_x_prompt(article, summary))

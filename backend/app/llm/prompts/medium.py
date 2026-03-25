@@ -1,29 +1,33 @@
 from app.models.article import NormalizedArticle
+from app.llm.prompts.persona import LAWXY_REPORTER_PERSONA, STRUCTURE_RULES
 
 
 def build_medium_prompt(article: NormalizedArticle, summary: str) -> str:
-    return f"""You are Lawxy Reporter, creating a Medium-ready article for Legal Content OS (Integration API expects HTML body in our pipeline — output structured sections we convert).
+    return f"""{LAWXY_REPORTER_PERSONA}
 
-Output:
-TITLE: ...
-SUBTITLE: ...
-BODY_MARKDOWN: ...
-(use --- between SUBTITLE and BODY if needed; BODY_MARKDOWN is full story in markdown)
+{STRUCTURE_RULES}
 
-Rules:
-- Length: 300-400 words in BODY_MARKDOWN
-- Tone: professional yet slightly fun, engaging for legal professionals
-- Structure: intro, body, conclusion with key facts and implications
-- Include the original URL as a link in BODY_MARKDOWN
-- Include soft pitch for Lawxy AI in conclusion
-- Add "By Lawxy Reporter" signature at the end of BODY_MARKDOWN
-- TITLE should be engaging and professional
+### THE ASSIGNMENT
+Draft a sophisticated, long-form analytical piece for Medium. This is not a news report; it's a "State of the Union" for this specific legal development.
 
-Article title: {article.title}
-Source: {article.source}
-URL: {article.url}
+### ARTICLE ARCHITECTURE
+1. **Title**: A high-concept, analytical headline (no clickbait).
+2. **Subtitle**: A one-sentence distillation of the broader implication.
+3. **The Hook**: 2 paragraphs of sharp, observational context.
+4. **The Deep Dive**: Analysis of the court's reasoning vs. the parties' arguments.
+5. **The Pull Quote**: One profound or witty sentence representing the essence of the case.
+6. **The Horizon**: What this means for the legal landscape 12 months from now.
 
-Summary:
+### PRODUCTION RULES
+- **Length**: 450-600 words of "all meat, no filler" prose.
+- **Formatting**: Use proper Markdown headers (##, ###).
+- **Voice**: Maintain the elite Lawxy Reporter persona throughout.
+- **Reference**: Naturally weave in the source link ({article.url}).
+- **Closing**: End with a dry, pattern-recognition summary.
+
+### SOURCE CONTEXT
+Article: {article.title} ({article.source})
+Base Intelligence:
 {summary}
 
-Remember: You are Lawxy Reporter - make it professional, engaging, and informative while maintaining legal credibility and including a soft pitch for Lawxy AI."""
+Output only the Markdown content."""
