@@ -71,22 +71,38 @@ def generate_draft(
 ) -> ContentDraft:
     summary = summarize_article(store, settings, article)
     system_msg = system.GENERATOR_SYSTEM_PROMPT
+    
     if platform == "linkedin":
         body = _complete(settings, system_msg, li_prompts.build_linkedin_prompt(article, summary))
         body = li_prompts.post_process_linkedin(body)
     elif platform == "x":
-        raw = _complete(settings, system, x_prompts.build_x_prompt(article, summary))
+        framer_url = ""
+        # Try to find a framer draft to link to
+        drafts = store.list_drafts(article.id)
+        framer_draft = next((d for d in drafts if d.platform == "framer"), None)
+        if framer_draft:
+            try:
+                data = json.loads(framer_draft.body)
+                slug = data.get("slug_slug", "")
+                if slug:
+                    framer_url = f"{settings.framer_base_url}/{slug}"
+            except:
+                pass
+        
+        raw = _complete(settings, system_msg, x_prompts.build_x_prompt(article, summary, framer_url))
         parts = x_prompts.split_x_thread(raw)
         body = "\n---\n".join(parts)
     elif platform == "reddit":
-        raw = _complete(settings, system, reddit_prompts.build_reddit_prompt(article, summary))
+        raw = _complete(settings, system_msg, reddit_prompts.build_reddit_prompt(article, summary))
         title, text = reddit_prompts.parse_reddit_title_body(raw)
         body = f"{title}\n\n{text}"
     elif platform == "framer":
-        raw = _complete(settings, system, framer_prompts.build_framer_prompt(article, summary))
+        raw = _complete(settings, system_msg, framer_prompts.build_framer_prompt(article, summary))
         body = _extract_json_block(raw)
+    elif platform == "instagram":
+        body = _complete(settings, system_msg, insta_prompts.build_instagram_prompt(article, summary))
     elif platform == "medium":
-        body = _complete(settings, system, medium_prompts.build_medium_prompt(article, summary))
+        body = _complete(settings, system_msg, medium_prompts.build_medium_prompt(article, summary))
     else:
         raise ValueError(f"Unknown platform {platform}")
 

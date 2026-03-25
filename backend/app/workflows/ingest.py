@@ -51,24 +51,7 @@ async def run_ingestion_enhanced(store: StateStore, settings: Settings, llm_serv
     return count
 
 
-def run_ingestion(store: StateStore, settings: Settings) -> int:
-    """Ingestion with deduplication and virality scoring."""
-    count = 0
-    articles = rss_sources.ingest_all_rss(settings)
-    articles.extend(tavily_client.search_scc_legal_news(settings))
-
-    # Deduplicate and score
-    if articles:
-        articles = rss_sources.deduplicate_articles(articles)
-        articles = rss_sources.score_articles_for_virality(articles)
-
-    for article in articles:
-        existing = store.get_article(article.id)
-        if existing is None or existing.title != article.title or existing.url != article.url:
-            store.upsert_article(article)
-            count += 1
-        elif existing.summary_hint != article.summary_hint:
-            store.upsert_article(article)
-            count += 1
-    log.info("Ingestion upserted %s articles", count)
-    return count
+async def run_ingestion(store: StateStore, settings: Settings) -> int:
+    """Ingestion with deduplication, virality scoring, and intelligence extraction."""
+    llm_service = LLMService(settings, store)
+    return await run_ingestion_enhanced(store, settings, llm_service)

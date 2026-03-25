@@ -1,6 +1,6 @@
 export type TabKey = 'dashboard' | 'news' | 'studio' | 'scheduler' | 'engagement' | 'analytics'
 
-export type Platform = 'linkedin' | 'x' | 'reddit' | 'framer' | 'medium'
+export type Platform = 'linkedin' | 'x' | 'reddit' | 'framer' | 'medium' | 'instagram'
 
 export type ContentIntelligence = {
   topic: string

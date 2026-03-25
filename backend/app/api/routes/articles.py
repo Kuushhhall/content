@@ -21,6 +21,6 @@ def get_article(article_id: str, store: StoreDep) -> ArticleOut:
 
 
 @router.post("/ingest", response_model=dict)
-def trigger_ingest(store: StoreDep, settings: SettingsDep) -> dict:
-    n = ingest_workflow.run_ingestion(store, settings)
+async def trigger_ingest(store: StoreDep, settings: SettingsDep) -> dict:
+    n = await ingest_workflow.run_ingestion(store, settings)
     return {"upserted": n}

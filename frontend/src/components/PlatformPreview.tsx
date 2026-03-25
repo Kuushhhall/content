@@ -20,6 +20,8 @@ export function PlatformPreview({ platform, content }: PlatformPreviewProps) {
         return <LinkedInPreview content={content} />
       case 'reddit':
         return <RedditPreview content={content} />
+      case 'instagram':
+        return <InstagramPreview content={content} />
       case 'medium':
         return <MediumPreview content={content} />
       case 'framer':
@@ -251,6 +253,59 @@ function MediumPreview({ content }: { content: string }) {
              <MoreHorizontal size={18} className="hover:text-volt transition-colors cursor-pointer" />
           </div>
        </div>
+    </div>
+  )
+}
+
+function InstagramPreview({ content }: { content: string }) {
+  return (
+    <div className="w-full max-w-sm mx-auto bg-black border border-white/10 rounded-3xl overflow-hidden font-sans shadow-2xl">
+      {/* Header */}
+      <div className="p-3 flex items-center justify-between border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-volt via-amethyst to-danger p-[2px]">
+            <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-[10px] font-black italic">LX</div>
+          </div>
+          <div className="flex flex-col -space-y-0.5">
+            <span className="text-[11px] font-bold text-silver">lawxy_os</span>
+            <span className="text-[9px] text-dim/60">Intelligence Hub</span>
+          </div>
+        </div>
+        <MoreHorizontal size={16} className="text-silver/60" />
+      </div>
+
+      {/* Visual Mock (Placeholder/Aura) */}
+      <div className="aspect-square relative bg-stellar/40 overflow-hidden flex items-center justify-center bg-gradient-to-br from-void to-graphite">
+         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+         <div className="relative z-10 p-8 text-center space-y-4">
+            <div className="h-1 w-8 bg-volt mx-auto rounded-full" />
+            <h4 className="text-xl font-black text-silver leading-tight tracking-tighter">Strategic<br />Brief</h4>
+            <div className="flex items-center justify-center gap-1">
+               {[1,2,3,4,5].map(i => <div key={i} className="h-0.5 w-4 bg-volt/30 rounded-full" />)}
+            </div>
+         </div>
+      </div>
+
+      {/* Action Bar */}
+      <div className="p-3 flex items-center justify-between text-silver">
+        <div className="flex items-center gap-4">
+          <Heart size={22} className="hover:text-danger hover:fill-danger transition-colors cursor-pointer" />
+          <MessageCircle size={22} className="hover:text-volt transition-colors cursor-pointer" />
+          <Send size={22} className="hover:text-volt transition-colors cursor-pointer" />
+        </div>
+        <Bookmark size={22} className="hover:text-volt transition-colors cursor-pointer" />
+      </div>
+
+      {/* Caption */}
+      <div className="px-3 pb-6 space-y-1.5">
+        <p className="text-[11px] text-silver font-bold">1,242 likes</p>
+        <div className="text-[12px] leading-relaxed text-silver/90">
+          <span className="font-bold mr-1.5">lawxy_os</span>
+          <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{content}</span>
+        </div>
+        <p className="text-[10px] text-dim/60 mt-2 uppercase tracking-tight font-bold">View all 42 comments</p>
+        <p className="text-[8px] text-dim/40 uppercase tracking-widest mt-1">2 hours ago</p>
+      </div>
     </div>
   )
 }

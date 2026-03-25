@@ -41,7 +41,7 @@ class ArticleOut(BaseModel):
 
 class DraftGenerateIn(BaseModel):
     article_id: str
-    platform: Literal["linkedin", "x", "reddit", "framer", "medium"]
+    platform: Literal["linkedin", "x", "reddit", "framer", "medium", "instagram"]
     draft_id: str | None = None
 
 
@@ -143,7 +143,7 @@ class PipelineStatusOut(BaseModel):
 
 class BatchDraftIn(BaseModel):
     article_id: str
-    platforms: list[Literal["linkedin", "x", "reddit", "framer", "medium"]]
+    platforms: list[Literal["linkedin", "x", "reddit", "framer", "medium", "instagram"]]
 
 
 class BatchDraftOut(BaseModel):
