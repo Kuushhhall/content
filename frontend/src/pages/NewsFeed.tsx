@@ -1,11 +1,25 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, RefreshCw, Newspaper, Search, TrendingUp, Scale, Tag, ArrowUpRight, Sparkles } from 'lucide-react'
+import { 
+  ExternalLink, 
+  RefreshCw, 
+  Newspaper, 
+  Search, 
+  TrendingUp, 
+  Tag, 
+  ArrowUpRight, 
+  Sparkles,
+  X,
+  Maximize2,
+  Calendar,
+  Globe
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 
 import { Card } from '../components/Card'
+import { Badge } from '../components/Badge'
 import { Spinner } from '../components/Spinner'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonList } from '../components/Skeleton'
@@ -34,9 +48,11 @@ const kindBadge: Record<string, string> = {
 export function NewsFeed() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const isDarkMode = useUIStore(state => state.isDarkMode)
   const { selectedArticleId, setSelectedArticleId } = useUIStore()
+  
   const [search, setSearch] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [modalArticle, setModalArticle] = useState<Article | null>(null)
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ['articles'],
@@ -69,44 +85,43 @@ export function NewsFeed() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Search & Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="relative flex-1 min-w-[280px] max-w-md">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-dim" />
+    <div className="space-y-8 animate-fade-in pb-12">
+      {/* Search Header */}
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="relative flex-1 min-w-[300px] max-w-xl group">
+          <Search size={20} className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors duration-300 ${isDarkMode ? 'text-dim/60 group-focus-within:text-volt' : 'text-slate-400 group-focus-within:text-teal-600'}`} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search Lawxy database..."
-            className="input-field pl-12 h-12"
+            placeholder="Search Lawxy intelligence database..."
+            className="input-field h-14 pl-14 pr-6 text-base font-medium"
           />
         </div>
         <button
           onClick={() => ingestMutation.mutate()}
           disabled={ingestMutation.isPending}
-          className="btn-primary h-12 px-6 shadow-glow-volt/20"
+          className="btn-primary h-14 px-10 gap-3 group/btn"
         >
-          {ingestMutation.isPending ? <Spinner size={18} /> : <RefreshCw size={18} />}
-          <span>Refresh Intelligence</span>
+          {ingestMutation.isPending ? <Spinner size={20} /> : <RefreshCw size={20} className="group-hover/btn:rotate-180 transition-transform duration-500" />}
+          <span>REFRESH INTELLIGENCE</span>
         </button>
       </div>
 
       {isLoading ? (
         <SkeletonList count={6} />
       ) : filtered.length === 0 ? (
-        <Card className="py-20">
+        <Card className="py-32 flex flex-col items-center justify-center border-dashed">
           <EmptyState
             icon={Newspaper}
-            title="No intelligence found"
-            description={search ? 'Refine your search parameters.' : 'Connect sources to begin ingestion.'}
+            title={search ? "Signal Fragmented" : "Registry Empty"}
+            description={search ? `No intelligence logs match "${search}". Try alternative search vectors.` : 'Intelligence ingestion required to begin workflow.'}
           />
         </Card>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((article) => {
             const selected = selectedArticleId === article.id
-            const expanded = expandedId === article.id
             const ci = article.content_intelligence
             const isViral = ci && ci.virality_score >= 0.4
 
@@ -116,103 +131,80 @@ export function NewsFeed() {
                 key={article.id}
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className={`group relative flex flex-col rounded-[1.5rem] border transition-all duration-300 ${
+                className={`group relative flex flex-col rounded-[2.5rem] border transition-all duration-500 overflow-hidden ${
                   selected
-                    ? 'border-volt/50 bg-volt/5 shadow-glow-volt'
-                    : 'border-graphite/40 bg-stellar/40 hover:border-volt/30 hover:bg-stellar/60 hover:shadow-card-hover'
+                    ? 'border-volt bg-volt/5 shadow-glow-volt/10 ring-2 ring-volt/10'
+                    : isDarkMode 
+                      ? 'border-graphite/40 bg-stellar/10 hover:border-volt/30' 
+                      : 'border-slate-200 bg-white hover:border-teal-300 shadow-xl shadow-slate-200/30'
                 }`}
               >
-                {/* Header */}
-                <div className="p-5 flex-1">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                       <div className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border ${kindBadge[article.kind]}`}>
+                <div className="p-8 flex-1">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                       <div className={`rounded-xl px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${kindBadge[article.kind] || 'bg-graphite/20 text-dim border-graphite/40'}`}>
                         {article.kind}
                       </div>
-                      <span className="text-[11px] font-bold text-dim">{article.source}</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted">{article.source}</span>
                     </div>
-                    <span className="text-[10px] font-medium text-dim/60">{timeAgo(article.published_at)}</span>
+                    <span className="text-[10px] font-bold text-muted/60">{timeAgo(article.published_at)}</span>
                   </div>
 
-                  <h3 className="mb-3 font-serif text-lg font-bold leading-tight text-silver group-hover:text-volt transition-colors line-clamp-2">
+                  <h3 className={`mb-4 font-serif text-xl font-bold leading-tight transition-colors text-main group-hover:text-volt line-clamp-2`}>
                     {article.title}
                   </h3>
 
-                  {/* AI Tags */}
                   {ci && (
-                    <div className="mb-4 flex flex-wrap gap-1.5">
-                      {ci.topic && (
-                        <div className="flex items-center gap-1 rounded-lg bg-void/50 px-2 py-1 text-[10px] font-bold text-dim border border-graphite/20">
-                          <Tag size={10} className="text-volt" /> {ci.topic}
-                        </div>
-                      )}
-                      {ci.legal_area && (
-                        <div className="flex items-center gap-1 rounded-lg bg-void/50 px-2 py-1 text-[10px] font-bold text-dim border border-graphite/20">
-                          <Scale size={10} className="text-amethyst" /> {ci.legal_area}
+                    <div className="mb-6 flex flex-wrap gap-2">
+                       {ci.topic && (
+                        <div className={`flex items-center gap-2 rounded-[10px] px-3 py-1.5 text-[10px] font-bold border ${isDarkMode ? 'bg-void/50 border-graphite/40 text-dim' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                          <Tag size={12} className="text-volt" /> {ci.topic}
                         </div>
                       )}
                       {isViral && (
-                        <div className="flex items-center gap-1 rounded-lg bg-success/10 px-2 py-1 text-[10px] font-black text-success border border-success/20">
-                          <TrendingUp size={10} /> HOT
+                        <div className="flex items-center gap-2 rounded-[10px] bg-success/10 px-3 py-1.5 text-[10px] font-black text-success border border-success/20">
+                          <TrendingUp size={12} /> HOT
                         </div>
                       )}
                     </div>
                   )}
 
-                  <p className="line-clamp-3 text-xs leading-relaxed text-dim/80">
-                    {article.structured_summary || article.summary_hint || 'Aggregating intelligence details...'}
+                  <p className="line-clamp-3 text-xs leading-relaxed transition-colors text-muted">
+                    {article.structured_summary || article.summary_hint || 'Decoding tactical information...'}
                   </p>
-
-                  <AnimatePresence>
-                    {expanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="mt-4 space-y-4 pt-4 border-t border-graphite/20 overflow-hidden"
-                      >
-                        {ci?.key_insights && ci.key_insights.length > 0 && (
-                          <div>
-                            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-volt/70">Key Insights</p>
-                            <ul className="space-y-2">
-                              {ci.key_insights.map((ins, i) => (
-                                <li key={i} className="flex gap-2 text-[11px] text-silver/80">
-                                  <span className="text-volt select-none">•</span>
-                                  {ins}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="mt-auto border-t border-graphite/20 p-4 flex items-center justify-between bg-stellar/20 rounded-b-[1.5rem]">
+                {/* Tactical Footer */}
+                <div className={`mt-auto border-t p-6 flex items-center justify-between transition-colors ${
+                  isDarkMode ? 'border-graphite/40 bg-void/30' : 'border-slate-100 bg-slate-50/70'
+                }`}>
                   <button
                     onClick={() => selectArticle(article)}
-                    className="group/btn flex items-center gap-1.5 text-xs font-bold text-volt"
+                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all text-volt hover:translate-x-1 group/launch"
                   >
-                    <span>Draft for Platform</span>
-                    <ArrowUpRight size={14} className="transition-transform group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5" />
+                    <span>Initiate Draft</span>
+                    <ArrowUpRight size={14} className="mb-0.5 group-hover/launch:-translate-y-0.5 group-hover/launch:translate-x-0.5 transition-transform" />
                   </button>
                   
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-3">
                     <button
-                      onClick={() => setExpandedId(expanded ? null : article.id)}
-                      className={`p-2 rounded-xl transition-colors ${expanded ? 'bg-volt/10 text-volt' : 'text-dim hover:text-silver hover:bg-white/5'}`}
+                      onClick={() => setModalArticle(article)}
+                      className={`p-3 rounded-2xl transition-all ${
+                        isDarkMode ? 'text-dim hover:text-silver hover:bg-white/5' : 'text-slate-400 hover:text-slate-900 hover:bg-white shadow-sm border border-slate-100'
+                      }`}
+                      title="Analyze full report"
                     >
-                      <Sparkles size={16} />
+                      <Maximize2 size={18} />
                     </button>
                     <a
                       href={article.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 rounded-xl text-dim hover:text-silver hover:bg-white/5 transition-colors"
+                      className={`p-3 rounded-2xl transition-all ${
+                         isDarkMode ? 'text-dim hover:text-silver hover:bg-white/5' : 'text-slate-400 hover:text-slate-900 hover:bg-white shadow-sm border border-slate-100'
+                      }`}
                     >
-                      <ExternalLink size={16} />
+                      <ExternalLink size={18} />
                     </a>
                   </div>
                 </div>
@@ -221,6 +213,156 @@ export function NewsFeed() {
           })}
         </div>
       )}
+
+      {/* Intelligence Modal */}
+      <AnimatePresence>
+        {modalArticle && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setModalArticle(null)}
+              className="absolute inset-0 bg-void/80 backdrop-blur-3xl"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 40 }}
+              className={`relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-[3rem] border transition-all duration-500 shadow-2xl ${
+                isDarkMode ? 'border-graphite/40 bg-stellar/40' : 'border-slate-200 bg-white shadow-2xl shadow-slate-900/10'
+              }`}
+            >
+              {/* Modal Header */}
+              <div className={`flex items-center justify-between p-8 border-b ${isDarkMode ? 'border-graphite/40 bg-void/40' : 'border-slate-100 bg-slate-50'}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${isDarkMode ? 'bg-volt/10 text-volt' : 'bg-teal-50 text-teal-600'}`}>
+                    <Sparkles size={24} />
+                  </div>
+                  <div>
+                    <h4 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-dim' : 'text-slate-400'}`}>Tactical Intelligence Report</h4>
+                    <p className={`text-xs font-bold ${isDarkMode ? 'text-silver' : 'text-slate-900'}`}>{modalArticle.source} • {modalArticle.id}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setModalArticle(null)}
+                  className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'text-dim hover:bg-white/5 hover:text-silver' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-900'}`}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="overflow-y-auto p-10 max-h-[calc(90vh-100px)] custom-scrollbar">
+                <div className="flex flex-wrap gap-4 mb-8">
+                  <Badge variant="volt" size="md">{modalArticle.kind.toUpperCase()}</Badge>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-graphite/20 bg-void/30 text-xs font-bold text-muted">
+                    <Calendar size={14} className="text-amethyst" /> {new Date(modalArticle.published_at!).toLocaleDateString()}
+                  </div>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-graphite/20 bg-void/30 text-xs font-bold text-muted">
+                    <Globe size={14} className="text-volt" /> {modalArticle.source}
+                  </div>
+                </div>
+
+                <h2 className="text-3xl md:text-4xl font-serif font-bold leading-tight mb-8 text-main">
+                  {modalArticle.title}
+                </h2>
+
+                <div className="grid gap-10 md:grid-cols-3">
+                  <div className="md:col-span-2 space-y-10">
+                    {/* Executive Summary */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                         <div className="h-1 w-8 rounded-full bg-volt" />
+                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-volt">Executive Summary</span>
+                      </div>
+                      <p className="text-lg leading-relaxed text-muted font-medium">
+                        {modalArticle.structured_summary || modalArticle.summary_hint || "Summary analysis in progress..."}
+                      </p>
+                    </div>
+
+                    {/* Full Analysis / Body */}
+                    {modalArticle.full_content && (
+                      <div className="space-y-4">
+                         <div className="flex items-center gap-3">
+                           <div className="h-1 w-8 rounded-full bg-amethyst" />
+                           <span className="text-[11px] font-black uppercase tracking-[0.2em] text-amethyst">Full Intelligence Report</span>
+                        </div>
+                        <div className={`prose max-w-none transition-colors duration-500 ${isDarkMode ? 'prose-invert' : 'prose-slate'}`}>
+                          <p className="text-base leading-relaxed text-muted whitespace-pre-wrap">
+                            {modalArticle.full_content}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sidebar stats/insights */}
+                  <div className="space-y-8">
+                    {/* AI Insights Card */}
+                    <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-stellar/20 border-graphite/40' : 'bg-slate-50 border-slate-200'}`}>
+                      <h5 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-volt mb-6">
+                        <TrendingUp size={14} /> Neural Metrics
+                      </h5>
+                      <div className="space-y-6">
+                        <div>
+                          <p className="text-[10px] font-bold text-muted mb-1 uppercase">Virality Vector</p>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-1.5 rounded-full bg-graphite/20 overflow-hidden">
+                               <motion.div 
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${(modalArticle.content_intelligence?.virality_score || 0.1) * 100}%` }}
+                                 className="h-full bg-success shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
+                               />
+                            </div>
+                            <span className="text-xs font-black text-main">{Math.round((modalArticle.content_intelligence?.virality_score || 0) * 100)}%</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <p className="text-[10px] font-bold text-muted mb-3 uppercase">Key Intelligence Pieces</p>
+                          <div className="space-y-3">
+                            {modalArticle.content_intelligence?.key_insights?.map((ins, i) => (
+                              <div key={i} className="flex gap-3 text-xs leading-relaxed text-muted">
+                                <div className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-volt" />
+                                <span>{ins}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Block */}
+                    <div className="space-y-3">
+                       <button
+                         onClick={() => {
+                           selectArticle(modalArticle)
+                           setModalArticle(null)
+                         }}
+                         className="w-full btn-primary h-14"
+                       >
+                         <Sparkles size={18} /> INITIATE DRAFT
+                       </button>
+                       <a
+                         href={modalArticle.url}
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         className={`flex items-center justify-center gap-2 w-full h-14 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all ${
+                           isDarkMode ? 'border-graphite/40 bg-stellar/20 text-silver hover:bg-white/5' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                         }`}
+                       >
+                         <ExternalLink size={18} /> SOURCE URL
+                       </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

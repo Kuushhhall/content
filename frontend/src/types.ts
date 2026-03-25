@@ -26,8 +26,13 @@ export type Article = {
   kind: string
   content_intelligence: ContentIntelligence
   structured_summary: string
+  full_content: string
+  raw_excerpt: string | null
+  extracted_facts: string[]
   court_name: string
   case_number: string
+  judges_involved: string[]
+  parties: string[]
   jurisdiction: string
   precedent_value: string
 }

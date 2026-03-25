@@ -28,8 +28,13 @@ class ArticleOut(BaseModel):
     kind: str = "rss"
     content_intelligence: ContentIntelligenceOut = ContentIntelligenceOut()
     structured_summary: str = ""
+    full_content: str = ""
+    raw_excerpt: str | None = None
+    extracted_facts: list[str] = []
     court_name: str = ""
     case_number: str = ""
+    judges_involved: list[str] = []
+    parties: list[str] = []
     jurisdiction: str = ""
     precedent_value: str = "medium"
 

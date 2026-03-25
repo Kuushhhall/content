@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Send,
@@ -38,15 +38,13 @@ export function ContentStudio() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isDarkMode = useUIStore(state => state.isDarkMode)
-  const { selectedArticleId, setSelectedArticleId, selectedDraftId, setSelectedDraftId } =
+  const { selectedArticleId, selectedDraftId, setSelectedDraftId } =
     useUIStore()
 
   const [platform, setPlatform] = useState<string>('linkedin')
   const [draftText, setDraftText] = useState('')
   const [scheduleAt, setScheduleAt] = useState('')
   const [showSchedule, setShowSchedule] = useState(false)
-  const [batchPlatforms, setBatchPlatforms] = useState<Set<string>>(new Set())
-  const [showBatch, setShowBatch] = useState(false)
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit')
   const [copied, setCopied] = useState(false)
 
@@ -305,9 +303,9 @@ export function ContentStudio() {
             </AnimatePresence>
           </div>
 
-          {/* Persistent Action Bar */}
-          <div className={`p-6 border-t flex flex-wrap items-center justify-between gap-6 transition-colors ${
-            isDarkMode ? 'border-graphite/40 bg-void/30' : 'border-slate-100 bg-slate-50'
+          {/* Persistent Action Bar - Sticky */}
+          <div className={`sticky bottom-0 z-20 p-6 border-t flex flex-wrap items-center justify-between gap-6 transition-all duration-500 backdrop-blur-3xl ${
+            isDarkMode ? 'border-graphite/40 bg-stellar/60' : 'border-slate-100 bg-white/90 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]'
           }`}>
              <div className="flex flex-wrap gap-3">
                <button 
@@ -359,7 +357,7 @@ export function ContentStudio() {
                  disabled={publishMutation.isPending}
                  className={`flex items-center gap-3 h-12 px-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
                    !hasContent 
-                    ? 'bg-slate-100 text-slate-300 dark:bg-void dark:text-dim dark:border-graphite/40 border cursor-not-allowed'
+                    ? 'bg-slate-100 text-slate-300 dark:bg-void dark:text-dim dark:border-graphite/40 border cursor-not-allowed opacity-50'
                     : 'bg-volt text-white shadow-glow-volt hover:scale-105 active:scale-95'
                  }`}
                >

@@ -1,4 +1,3 @@
-import React from 'react'
 import { 
   Heart, MessageCircle, Share2, MoreHorizontal, 
   Repeat, BarChart2, Bookmark, Eye, 

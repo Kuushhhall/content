@@ -7,7 +7,6 @@ import {
   MessageSquare,
   BarChart3,
   Zap,
-  Bot,
 } from 'lucide-react'
 import { NavLink, useLocation, Link } from 'react-router-dom'
 import { useUIStore } from '../store/uiStore'
