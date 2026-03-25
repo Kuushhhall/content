@@ -406,3 +406,13 @@ content-1/
 ├── HOW_TO_RUN.md                 # This file
 └── FRONTEND_DEVELOPER_GUIDE.md   # Detailed frontend API reference
 ```
+cd backend
+.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 9000
+sleep 4 && curl -s http://localhost:9000/api/health
+cd backend
+.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 9000
+
+
+# If you are in the root directory:
+cd backend
+.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 9000 --reload
