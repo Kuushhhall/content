@@ -4,45 +4,63 @@
 @tailwind components;
 @tailwind utilities;
 
-/* THEME ENGINE: ELECTRIC MIDNIGHT (DARK) & PREMIUM DAWN (LIGHT) */
+/* THEME ENGINE: NATURE NOCTURNE (DARK) & SAGE DAWN (LIGHT) */
 :root {
-  /* DARK MODE (DEFAULTS) */
-  --void-rgb: 8, 11, 20;
-  --stellar-rgb: 16, 22, 37;
-  --graphite-rgb: 30, 41, 59;
-  --volt-rgb: 0, 242, 255;
-  --volt-light-rgb: 51, 245, 255;
-  --amethyst-rgb: 139, 92, 246;
-  --silver-rgb: 226, 232, 240;
-  --dim-rgb: 100, 116, 139;
-  --success-rgb: 16, 185, 129;
-  --danger-rgb: 239, 68, 68;
-  --info-rgb: 6, 182, 212;
-  --warning-rgb: 245, 158, 11;
+  /* DARK MODE (DEFAULTS) - Nature Nocturne */
+  --void-rgb: 27, 12, 12;
+  --stellar-rgb: 49, 62, 23;
+  --graphite-rgb: 76, 92, 45;
+  --volt-rgb: 255, 222, 66;
+  --volt-light-rgb: 255, 235, 130;
+  --amethyst-rgb: 76, 92, 45;
+  --amethyst-light-rgb: 120, 140, 80;
+  --silver-rgb: 255, 248, 231;
+  --dim-rgb: 180, 170, 140;
+  --success-rgb: 168, 217, 76;
+  --danger-rgb: 220, 80, 60;
+  --info-rgb: 255, 222, 66;
+  --warning-rgb: 255, 200, 50;
+  --ink-rgb: 27, 12, 12;
+  --cream-rgb: 255, 248, 231;
+  --panel-rgb: 49, 62, 23;
+  --stroke-rgb: 76, 92, 45;
+  --muted-rgb: 140, 130, 100;
   
-  --shadow-card: 0 4px 64px rgba(0,0,0,0.6);
-  --shadow-glow-volt: 0 0 20px rgba(0, 242, 255, 0.15);
-  --shadow-glow-volt-muted: 0 0 20px rgba(0, 242, 255, 0.05);
+  --shadow-card: 0 4px 64px rgba(27, 12, 12, 0.6);
+  --shadow-card-hover: 0 8px 80px rgba(27, 12, 12, 0.8);
+  --shadow-glow-volt: 0 0 20px rgba(255, 222, 66, 0.15);
+  --shadow-glow-volt-muted: 0 0 20px rgba(255, 222, 66, 0.05);
+  --shadow-glow-amethyst: 0 0 20px rgba(76, 92, 45, 0.15);
+  --shadow-glow-success: 0 0 20px rgba(168, 217, 76, 0.15);
 }
 
 .light {
-  /* LIGHT MODE (PREMIUM DAWN) */
-  --void-rgb: 255, 255, 255;
-  --stellar-rgb: 248, 250, 252;
-  --graphite-rgb: 226, 232, 240;
-  --volt-rgb: 13, 148, 136;
-  --volt-light-rgb: 20, 184, 166;
-  --amethyst-rgb: 124, 58, 237;
-  --silver-rgb: 15, 23, 42;
-  --dim-rgb: 71, 85, 105;
-  --success-rgb: 5, 150, 105;
-  --danger-rgb: 220, 38, 38;
-  --info-rgb: 8, 145, 178;
-  --warning-rgb: 217, 119, 6;
+  /* LIGHT MODE (SAGE DAWN) */
+  --void-rgb: 255, 248, 231;
+  --stellar-rgb: 240, 245, 232;
+  --graphite-rgb: 76, 92, 45;
+  --volt-rgb: 76, 92, 45;
+  --volt-light-rgb: 100, 120, 60;
+  --amethyst-rgb: 49, 62, 23;
+  --amethyst-light-rgb: 80, 100, 40;
+  --silver-rgb: 27, 12, 12;
+  --dim-rgb: 100, 95, 75;
+  --success-rgb: 76, 92, 45;
+  --danger-rgb: 180, 50, 40;
+  --info-rgb: 76, 92, 45;
+  --warning-rgb: 49, 62, 23;
+  --ink-rgb: 27, 12, 12;
+  --cream-rgb: 255, 248, 231;
+  --panel-rgb: 240, 245, 232;
+  --stroke-rgb: 76, 92, 45;
+  --muted-rgb: 120, 115, 95;
 
-  --shadow-card: 0 10px 40px -10px rgba(0,0,0,0.08);
-  --shadow-glow-volt: 0 4px 12px rgba(13, 148, 136, 0.1);
-  --shadow-glow-volt-muted: 0 2px 8px rgba(13, 148, 136, 0.04);
+  --shadow-card: 0 10px 40px -10px rgba(27, 12, 12, 0.08);
+  --shadow-card-hover: 0 15px 50px -10px rgba(27, 12, 12, 0.12);
+  --shadow-glow-volt: 0 4px 12px rgba(76, 92, 45, 0.1);
+  --shadow-glow-volt-muted: 0 2px 8px rgba(76, 92, 45, 0.04);
+  --shadow-glow-amethyst: 0 4px 12px rgba(49, 62, 23, 0.1);
+  --shadow-glow-success: 0 4px 12px rgba(76, 92, 45, 0.1);
 }
 
 @layer base {
@@ -65,20 +83,21 @@
   }
   
   .light .text-main {
-    @apply text-slate-900;
+    @apply text-ink;
   }
 
   .text-muted {
-    @apply text-dim transition-colors duration-500;
+    color: rgba(var(--dim-rgb), 1);
+    transition: color 0.5s;
   }
   
   .light .text-muted {
-    @apply text-slate-500;
+    color: rgba(var(--muted-rgb), 1);
   }
 
   /* Primary Button */
   .btn-primary {
-    @apply flex items-center justify-center gap-2 rounded-2xl bg-volt px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition-all shadow-glow-volt hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+    @apply flex items-center justify-center gap-2 rounded-2xl bg-volt px-6 py-3 text-sm font-black uppercase tracking-widest text-ink transition-all shadow-glow-volt hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
   }
 
   .input-field {
@@ -90,7 +109,16 @@
   }
   
   .light .input-field {
-    @apply border-slate-200 bg-white focus:border-teal-500/50 shadow-sm;
+    @apply border-graphite/20 bg-white focus:border-volt/50 shadow-sm;
+  }
+
+  /* Surface classes */
+  .surface-stellar {
+    @apply bg-stellar/20 transition-colors duration-500;
+  }
+  
+  .light .surface-stellar {
+    @apply bg-stellar/50;
   }
 }
 
@@ -101,6 +129,14 @@
   
   .shadow-glow-volt-muted {
     box-shadow: var(--shadow-glow-volt-muted);
+  }
+
+  .shadow-glow-amethyst {
+    box-shadow: var(--shadow-glow-amethyst);
+  }
+
+  .shadow-glow-success {
+    box-shadow: var(--shadow-glow-success);
   }
 
   /* Custom Scrollbar Global */

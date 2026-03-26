@@ -33,6 +33,47 @@ Summary Intelligence:
 
 Write only the post body."""
 
+
+def build_linkedin_combined_prompt(article: NormalizedArticle) -> str:
+    """Build a SINGLE prompt that generates both summary AND LinkedIn post."""
+    return f"""
+{LAWXY_REPORTER_PERSONA}
+
+### THE ASSIGNMENT
+You are the Lawxy Times Reporter. Analyze this legal article and create a LinkedIn "Tippni" post.
+
+### OUTPUT FORMAT (JSON)
+Return a JSON object with exactly two fields:
+{{
+  "summary": "3-5 sentence summary capturing the key legal development, what it means, and why it matters",
+  "draft": "The full LinkedIn post content"
+}}
+
+### ARTICLE TO ANALYZE
+Title: {article.title}
+Source: {article.source}
+URL: {article.url}
+Content:
+{article.full_content or article.summary_hint or article.raw_excerpt or "(no content available)"}
+
+### LINKEDIN POST RULES
+1. **The Headline**: Crisp, high-impact headline capturing the core disruption
+2. **The Hook**: 1-2 punchy sentences explaining why this matters to the reader
+3. **Intelligence Breakdown**: 3-5 bullet points with **bold** emphasis, explaining "so what" for industry
+4. **The Link**: Integrate source URL naturally
+5. **The Closing**: Surgical closing line with dry wit
+6. **Hashtags**: Exactly 7-8 elite, relevant hashtags
+
+### STYLE
+- Voice: Sharp, cynical, surgical news reporter
+- NO corporate "excited to share" filler
+- High readability with white space
+- Maximum 3000 characters for the draft
+
+Return ONLY the JSON object, no other text.
+"""
+
+
 def post_process_linkedin(body: str) -> str:
     """Ensure the text fits LinkedIn limits and clean up only accidental title headers."""
     # We remove '#' from the start OF HEADERS (like # Headline) but NOT from hashtags (#legal)

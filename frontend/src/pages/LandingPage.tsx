@@ -4,7 +4,7 @@ import { Zap, Sparkles, ArrowRight, Activity, Bot, ChevronRight } from 'lucide-r
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-void text-silver selection:bg-volt selection:text-void overflow-x-hidden">
+    <div className="min-h-screen bg-void text-silver selection:bg-volt/30 selection:text-current overflow-x-hidden">
       {/* Dynamic Background Aura */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute -left-1/4 -top-1/4 h-[800px] w-[800px] animate-blob rounded-full bg-volt/10 blur-[150px] opacity-40" />

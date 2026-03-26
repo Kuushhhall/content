@@ -35,22 +35,22 @@ function App() {
   }, [isDarkMode])
 
   return (
-    <div className={`flex h-screen w-full selection:bg-volt selection:text-void overflow-hidden transition-colors duration-700 ${isDarkMode ? 'bg-void' : 'bg-white'}`}>
+    <div className={`flex h-screen w-full selection:bg-volt/30 selection:text-current overflow-hidden transition-colors duration-700 ${isDarkMode ? 'bg-void' : 'bg-cream'}`}>
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 3500,
           className: 'premium-toast',
           style: {
-            background: isDarkMode ? 'rgba(10, 11, 14, 0.9)' : 'rgba(255, 255, 255, 0.95)',
-            color: isDarkMode ? '#EDF2F4' : '#0f172a',
-            border: isDarkMode ? '1px solid rgba(0, 242, 255, 0.2)' : '1px solid rgba(13, 148, 136, 0.2)',
+            background: isDarkMode ? 'rgba(27, 12, 12, 0.9)' : 'rgba(255, 248, 231, 0.95)',
+            color: isDarkMode ? '#FFF8E7' : '#1B0C0C',
+            border: isDarkMode ? '1px solid rgba(255, 222, 66, 0.2)' : '1px solid rgba(76, 92, 45, 0.2)',
             borderRadius: '24px',
             fontSize: '13px',
             fontWeight: '700',
             padding: '16px 24px',
             backdropFilter: 'blur(20px)',
-            boxShadow: isDarkMode ? '0 12px 64px rgba(0,0,0,0.6)' : '0 12px 64px rgba(15, 23, 42, 0.1)',
+            boxShadow: isDarkMode ? '0 12px 64px rgba(27, 12, 12, 0.6)' : '0 12px 64px rgba(27, 12, 12, 0.1)',
             letterSpacing: '0.05em',
             textTransform: 'uppercase',
           },

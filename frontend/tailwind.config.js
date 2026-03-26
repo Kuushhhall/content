@@ -23,7 +23,6 @@ export default {
         "panel": "rgba(var(--panel-rgb), <alpha-value>)",
         "stroke": "rgba(var(--stroke-rgb), <alpha-value>)",
         "muted": "rgba(var(--muted-rgb), <alpha-value>)",
-        "test": "#ff0000"
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui'],

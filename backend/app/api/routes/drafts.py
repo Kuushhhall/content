@@ -47,37 +47,121 @@ async def list_drafts(
 
 
 @router.post("/generate", response_model=DraftOut)
-def generate(body: DraftGenerateIn, store: StoreDep, settings: SettingsDep) -> DraftOut:
-    article = store.get_article(body.article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-    draft = generate_draft(
-        store,
-        settings,
-        article,
-        body.platform,
-        draft_id=body.draft_id,
-    )
+async def generate(body: DraftGenerateIn, store: StoreDep, settings: SettingsDep, db: DBSessionDep) -> DraftOut:
+    if db:
+        from app.repositories.articles import ArticleRepository
+        from app.models.article import NormalizedArticle
+        repo = ArticleRepository(db)
+        adb = await repo.get_by_id(body.article_id)
+        if not adb:
+            raise HTTPException(status_code=404, detail="Article not found")
+        article = NormalizedArticle.model_validate(adb.__dict__)
+        # Pass database session to generate_draft
+        draft = await generate_draft(
+            db,
+            settings,
+            article,
+            body.platform,
+            draft_id=body.draft_id,
+        )
+    else:
+        article = store.get_article(body.article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        # Pass StateStore to generate_draft
+        draft = await generate_draft(
+            store,
+            settings,
+            article,
+            body.platform,
+            draft_id=body.draft_id,
+        )
+
     return DraftOut.model_validate(draft.model_dump())
 
 
 @router.get("/{draft_id}", response_model=DraftOut)
-def get_draft(draft_id: str, store: StoreDep) -> DraftOut:
-    d = store.get_draft(draft_id)
-    if not d:
-        raise HTTPException(status_code=404, detail="Draft not found")
-    return DraftOut.model_validate(d.model_dump())
+async def get_draft(draft_id: str, store: StoreDep, db: DBSessionDep) -> DraftOut:
+    if db:
+        repo = DraftRepository(db)
+        ddb = await repo.get_by_id(draft_id)
+        if not ddb:
+            raise HTTPException(status_code=404, detail="Draft not found")
+        return DraftOut.model_validate(ddb.__dict__)
+    else:
+        d = store.get_draft(draft_id)
+        if not d:
+            raise HTTPException(status_code=404, detail="Draft not found")
+        return DraftOut.model_validate(d.model_dump())
 
 
 @router.patch("/{draft_id}", response_model=DraftOut)
-def patch_draft(draft_id: str, body: DraftUpdateIn, store: StoreDep) -> DraftOut:
+async def patch_draft(draft_id: str, body: DraftUpdateIn, store: StoreDep, db: DBSessionDep) -> DraftOut:
     from datetime import UTC, datetime
 
-    d = store.get_draft(draft_id)
-    if not d:
-        raise HTTPException(status_code=404, detail="Draft not found")
-    if body.body is not None:
-        d.body = body.body
-        d.updated_at = datetime.now(UTC)
-    store.upsert_draft(d)
-    return DraftOut.model_validate(d.model_dump())
+    if db:
+        repo = DraftRepository(db)
+        ddb = await repo.get_by_id(draft_id)
+        if not ddb:
+            raise HTTPException(status_code=404, detail="Draft not found")
+        if body.body is not None:
+            ddb.body = body.body
+            ddb.updated_at = datetime.now(UTC)
+        await repo.upsert(ddb)
+        await db.commit()
+        return DraftOut.model_validate(ddb.__dict__)
+    else:
+        d = store.get_draft(draft_id)
+        if not d:
+            raise HTTPException(status_code=404, detail="Draft not found")
+        if body.body is not None:
+            d.body = body.body
+            d.updated_at = datetime.now(UTC)
+        store.upsert_draft(d)
+        return DraftOut.model_validate(d.model_dump())
+
+
+@router.post("/{draft_id}/regenerate", response_model=DraftOut)
+async def regenerate_draft(
+    draft_id: str,
+    store: StoreDep,
+    settings: SettingsDep,
+    db: DBSessionDep,
+) -> DraftOut:
+    """Regenerate a draft with a fresh LLM call using single-call optimization."""
+    from app.llm.pipeline import generate_draft_single_call
+    from app.repositories.articles import ArticleRepository
+    from app.models.article import NormalizedArticle
+    
+    # Get existing draft
+    if db:
+        draft_repo = DraftRepository(db)
+        existing_draft = await draft_repo.get_by_id(draft_id)
+        if not existing_draft:
+            raise HTTPException(status_code=404, detail="Draft not found")
+        
+        # Get original article
+        article_repo = ArticleRepository(db)
+        article_db = await article_repo.get_by_id(existing_draft.article_id)
+        if not article_db:
+            raise HTTPException(status_code=404, detail="Article not found")
+        article = NormalizedArticle.model_validate(article_db.__dict__)
+    else:
+        existing_draft = store.get_draft(draft_id)
+        if not existing_draft:
+            raise HTTPException(status_code=404, detail="Draft not found")
+        
+        article = store.get_article(existing_draft.article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+    
+    # Regenerate with single LLM call
+    new_draft = await generate_draft_single_call(
+        db or store,
+        settings,
+        article,
+        existing_draft.platform,
+        draft_id=draft_id,  # Keep same ID to overwrite
+    )
+    
+    return DraftOut.model_validate(new_draft.model_dump())

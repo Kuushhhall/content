@@ -21,13 +21,28 @@ def build_scheduler(settings: Settings, get_store) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone=timezone.utc)
 
     async def ingest_tick() -> None:
-        store = get_store()
-        try:
-            log.debug("Job start: ingest")
-            await ingest_workflow.run_ingestion(store, settings)
-            log.debug("Job done: ingest")
-        except Exception:
-            log.error("Job failed: ingest\n%s", traceback.format_exc())
+        from app.database import get_database
+        
+        db = get_database()
+        if db:
+            # Use PostgreSQL database session
+            try:
+                log.debug("Job start: ingest (PostgreSQL)")
+                async with db.session() as session:
+                    await ingest_workflow.run_ingestion(session, settings)
+                    await session.commit()
+                log.debug("Job done: ingest (PostgreSQL)")
+            except Exception:
+                log.error("Job failed: ingest (PostgreSQL)\n%s", traceback.format_exc())
+        else:
+            # Fallback to in-memory store
+            store = get_store()
+            try:
+                log.debug("Job start: ingest (in-memory)")
+                await ingest_workflow.run_ingestion(store, settings)
+                log.debug("Job done: ingest (in-memory)")
+            except Exception:
+                log.error("Job failed: ingest (in-memory)\n%s", traceback.format_exc())
 
     async def publish_tick() -> None:
         store = get_store()

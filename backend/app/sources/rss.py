@@ -21,13 +21,17 @@ def _entry_id(feed_url: str, link: str, title: str) -> str:
 
 
 def _parse_entry_published(entry: feedparser.FeedParserDict) -> datetime | None:
+    """Parse publication date from RSS entry with multiple fallback strategies."""
+    # Strategy 1: Try parsed date structures
     for struct in (entry.get("published_parsed"), entry.get("updated_parsed")):
         if struct:
             try:
                 return datetime(*struct[:6])
             except (TypeError, ValueError):
                 pass
-    for key in ("published", "updated"):
+    
+    # Strategy 2: Try string date fields
+    for key in ("published", "updated", "dc_date", "created"):
         val = entry.get(key)
         if isinstance(val, str):
             try:
@@ -35,6 +39,52 @@ def _parse_entry_published(entry: feedparser.FeedParserDict) -> datetime | None:
                 return dt.replace(tzinfo=None) if dt.tzinfo else dt
             except (TypeError, ValueError):
                 pass
+    
+    # Strategy 3: Extract date from content or summary
+    content = entry.get("summary") or entry.get("description") or ""
+    title = entry.get("title") or ""
+    
+    # Common date patterns in Indian legal news
+    date_patterns = [
+        r'(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})',
+        r'(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})',
+        r'(\d{1,2})/(\d{1,2})/(\d{4})',
+        r'(\d{4})-(\d{1,2})-(\d{1,2})',
+    ]
+    
+    month_map = {
+        'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+        'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+    }
+    
+    text_to_search = f"{title} {content}"
+    
+    for pattern in date_patterns:
+        import re
+        match = re.search(pattern, text_to_search, re.IGNORECASE)
+        if match:
+            try:
+                groups = match.groups()
+                if len(groups) == 3:
+                    if groups[1].lower() in month_map:
+                        # Pattern: "12 March 2024" or "March 12, 2024"
+                        if groups[0].isdigit():
+                            day, month_str, year = groups
+                        else:
+                            month_str, day, year = groups
+                        month = month_map[month_str.lower()]
+                        return datetime(int(year), month, int(day))
+                    else:
+                        # Pattern: "12/03/2024" or "2024-03-12"
+                        if '/' in pattern:
+                            day, month, year = groups
+                        else:
+                            year, month, day = groups
+                        return datetime(int(year), int(month), int(day))
+            except (ValueError, KeyError):
+                continue
+    
+    # Strategy 4: Return None (will use fetched_at as fallback)
     return None
 
 
@@ -208,12 +258,11 @@ async def process_articles_with_intelligence(articles: List[NormalizedArticle],
     processed_articles = []
     for article in articles:
         try:
-            # Fetch full content
+            # Fetch full content via BeautifulSoup (No LLM Calls)
             article.full_content = fetch_full_article_content(article)
             
-            # Process with content intelligence
-            processed_article = await intelligence_service.process_article(article)
-            processed_articles.append(processed_article)
+            # Skip LLM intelligence extraction to save API calls
+            processed_articles.append(article)
             
         except Exception as e:
             log.error(f"Error processing article {article.id}: {e}")

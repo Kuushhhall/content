@@ -13,11 +13,11 @@ import { useUIStore } from '../store/uiStore'
 import { useStatusSocket } from '../hooks/useStatusSocket'
 
 const navItems = [
-  { path: '/dashboard', label: 'Mission Control', icon: LayoutDashboard },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/news', label: 'News Feed', icon: Newspaper },
   { path: '/studio', label: 'Content Studio', icon: PenTool },
-  { path: '/scheduler', label: 'Post Scheduler', icon: Calendar },
-  { path: '/engagement', label: 'Engagement Hub', icon: MessageSquare },
+  { path: '/scheduler', label: 'Scheduler', icon: Calendar },
+  { path: '/engagement', label: 'Engagement', icon: MessageSquare },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
 ]
 
@@ -46,7 +46,7 @@ export function Sidebar() {
         } lg:translate-x-0 ${
           isDarkMode 
             ? 'border-graphite/40 bg-void/80 backdrop-blur-2xl' 
-            : 'border-slate-200 bg-white shadow-2xl shadow-slate-200/50'
+            : 'border-graphite/20 bg-cream shadow-2xl shadow-ink/5'
         }`}
       >
       {/* Logo */}
@@ -56,7 +56,7 @@ export function Sidebar() {
             <Zap size={22} className="text-white fill-current" />
           </div>
           <div>
-            <h1 className={`font-serif text-lg font-bold leading-none ${isDarkMode ? 'text-silver' : 'text-slate-900'}`}>Lawxy</h1>
+            <h1 className={`font-serif text-lg font-bold leading-none ${isDarkMode ? 'text-silver' : 'text-ink'}`}>Lawxy</h1>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-volt">Reporter</p>
           </div>
         </div>
@@ -74,10 +74,10 @@ export function Sidebar() {
               className={({ isActive }) => 
                 `group relative flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 ${
                   isActive
-                    ? 'bg-volt/10 text-volt shadow-[0_0_20px_rgba(0,242,255,0.1)]'
+                    ? 'bg-volt/10 text-volt shadow-[0_0_20px_rgba(255,222,66,0.1)]'
                     : isDarkMode 
                       ? 'text-dim hover:bg-white/5 hover:text-silver' 
-                      : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
+                      : 'text-muted hover:bg-stellar/30 hover:text-ink'
                 }`
               }
             >
@@ -104,11 +104,11 @@ export function Sidebar() {
       </nav>
 
       {/* Footer / Status */}
-      <div className={`border-t p-6 transition-colors duration-500 ${isDarkMode ? 'border-graphite/40' : 'border-slate-100'}`}>
+      <div className={`border-t p-6 transition-colors duration-500 ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`}>
         <div className={`rounded-2xl border p-4 transition-all duration-500 ${
           isDarkMode 
             ? 'border-graphite/40 bg-stellar/50' 
-            : 'border-slate-100 bg-slate-50'
+            : 'border-graphite/20 bg-stellar/30'
         }`}>
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -116,17 +116,17 @@ export function Sidebar() {
                 <div className="h-1.5 w-1.5 rounded-full bg-success" />
                 <div className="absolute inset-0 h-1.5 w-1.5 animate-ping rounded-full bg-success opacity-75" />
               </div>
-              <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-dim' : 'text-slate-400'}`}>System Sync</span>
+              <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-dim' : 'text-muted'}`}>System Sync</span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
-              <p className={`text-[10px] font-bold ${isDarkMode ? 'text-dim' : 'text-slate-400'}`}>MODELS</p>
-              <p className={`font-black ${isDarkMode ? 'text-silver' : 'text-slate-900'}`}>{status?.articles ?? 0}</p>
+              <p className={`text-[10px] font-bold ${isDarkMode ? 'text-dim' : 'text-muted'}`}>MODELS</p>
+              <p className={`font-black ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{status?.articles ?? 0}</p>
             </div>
             <div>
-              <p className={`text-[10px] font-bold ${isDarkMode ? 'text-dim' : 'text-slate-400'}`}>SYNTH</p>
-              <p className={`font-black ${isDarkMode ? 'text-silver' : 'text-slate-900'}`}>{status?.drafts ?? 0}</p>
+              <p className={`text-[10px] font-bold ${isDarkMode ? 'text-dim' : 'text-muted'}`}>SYNTH</p>
+              <p className={`font-black ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{status?.drafts ?? 0}</p>
             </div>
           </div>
         </div>

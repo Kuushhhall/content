@@ -95,13 +95,47 @@ class ArticleRepository:
             return article
 
     async def delete(self, article_id: str) -> bool:
-        """Delete article by ID. O(log n) index update."""
+        """Delete article by ID with cascade delete of related records. O(log n) index update."""
+        from app.models.db_models import DraftDB, ScheduleDB, EngagementCommentDB, ArticleSummaryDB
+        
         article = await self.get_by_id(article_id)
-        if article:
-            await self.session.delete(article)
-            await self.session.flush()
-            return True
-        return False
+        if not article:
+            return False
+        
+        # Delete related records first (cascade)
+        # Delete schedules for drafts of this article
+        drafts_stmt = select(DraftDB.id).where(DraftDB.article_id == article_id)
+        drafts_result = await self.session.execute(drafts_stmt)
+        draft_ids = [row[0] for row in drafts_result.all()]
+        
+        if draft_ids:
+            # Delete schedules
+            schedules_stmt = select(ScheduleDB).where(ScheduleDB.draft_id.in_(draft_ids))
+            schedules_result = await self.session.execute(schedules_stmt)
+            for schedule in schedules_result.scalars().all():
+                await self.session.delete(schedule)
+            
+            # Delete drafts
+            for draft_id in draft_ids:
+                draft = await self.session.get(DraftDB, draft_id)
+                if draft:
+                    await self.session.delete(draft)
+        
+        # Delete engagement comments
+        comments_stmt = select(EngagementCommentDB).where(EngagementCommentDB.article_id == article_id)
+        comments_result = await self.session.execute(comments_stmt)
+        for comment in comments_result.scalars().all():
+            await self.session.delete(comment)
+        
+        # Delete article summary
+        summary = await self.session.get(ArticleSummaryDB, article_id)
+        if summary:
+            await self.session.delete(summary)
+        
+        # Finally delete the article
+        await self.session.delete(article)
+        await self.session.flush()
+        return True
 
     async def get_summary(self, article_id: str) -> str | None:
         """Get cached LLM summary. O(log n) via primary key."""

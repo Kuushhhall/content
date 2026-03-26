@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Play,
-  Zap,
-  Settings2,
   Newspaper,
   PenTool,
   Send,
@@ -12,11 +10,8 @@ import {
   XCircle,
   Clock,
   ArrowRight,
-  Sparkles,
   Bot,
   Activity as ActivityIcon,
-  Shield,
-  Radio,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -74,52 +69,23 @@ export function Dashboard() {
       <section className={`relative overflow-hidden rounded-[3rem] border p-12 backdrop-blur-3xl transition-all duration-500 ${
         isDarkMode 
           ? 'border-graphite/40 bg-stellar/10' 
-          : 'border-slate-200 bg-white shadow-2xl shadow-slate-200/50'
+          : 'border-graphite/20 bg-cream shadow-2xl shadow-ink/5'
       }`}>
         {/* Ambient Blobs */}
-        <div className={`absolute -right-32 -top-32 h-96 w-96 rounded-full blur-[120px] animate-pulse transition-colors duration-1000 ${isDarkMode ? 'bg-volt/10' : 'bg-teal-500/5'}`} />
-        <div className={`absolute -bottom-24 -left-24 h-72 w-72 rounded-full blur-[90px] transition-colors duration-1000 ${isDarkMode ? 'bg-amethyst/10' : 'bg-violet-500/5'}`} />
+        <div className={`absolute -right-32 -top-32 h-96 w-96 rounded-full blur-[120px] animate-pulse transition-colors duration-1000 ${isDarkMode ? 'bg-volt/10' : 'bg-volt/5'}`} />
+        <div className={`absolute -bottom-24 -left-24 h-72 w-72 rounded-full blur-[90px] transition-colors duration-1000 ${isDarkMode ? 'bg-amethyst/10' : 'bg-amethyst/5'}`} />
         
         <div className="relative z-10">
           <div className="mb-10 flex flex-wrap items-center justify-between gap-8">
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                 <div className="h-2 w-2 rounded-full bg-volt animate-ping" />
-                 <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-volt' : 'text-teal-600'}`}>Operations Live</span>
-              </div>
               <h1 className={`font-serif text-5xl md:text-6xl font-black tracking-tighter text-main`}>
-                Mission <span className="text-volt drop-shadow-glow-volt">Control</span>
+                Dashboard
               </h1>
               <p className={`max-w-2xl text-lg font-medium leading-relaxed text-muted`}>
-                Orchestrate your autonomous legal presence. Monitor neural ingestion, authorize content deployments, and analyze growth vectors in real-time.
+                Monitor your content pipeline, track articles, and manage drafts.
               </p>
             </div>
 
-            {/* Mode toggle */}
-            <div className={`flex items-center gap-4 rounded-[2rem] border p-2 shadow-inner transition-colors duration-500 ${isDarkMode ? 'border-graphite/40 bg-void/50' : 'border-slate-100 bg-slate-50'}`}>
-              <button
-                onClick={() => modeMutation.mutate('manual')}
-                className={`flex items-center gap-3 rounded-[1.25rem] px-8 py-3.5 text-xs font-black uppercase tracking-widest transition-all duration-300 ${
-                  !isAuto
-                    ? 'bg-volt text-white shadow-glow-volt'
-                    : 'text-muted hover:text-main'
-                }`}
-              >
-                <Settings2 size={18} />
-                Manual
-              </button>
-              <button
-                onClick={() => modeMutation.mutate('auto')}
-                className={`flex items-center gap-3 rounded-[1.25rem] px-8 py-3.5 text-xs font-black uppercase tracking-widest transition-all duration-300 ${
-                  isAuto
-                    ? 'bg-success text-white shadow-glow-success'
-                    : 'text-muted hover:text-main'
-                }`}
-              >
-                <Zap size={18} />
-                Auto
-              </button>
-            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-8">
@@ -129,22 +95,18 @@ export function Dashboard() {
               className="btn-primary group h-16 px-12 text-lg font-black shadow-glow-volt/20 rounded-[1.5rem]"
             >
               {runPipelineMutation.isPending || currentRun ? (
-                <Spinner size={32} label="Processing Sequence..." className="gap-4" />
+                <div className="flex items-center gap-3">
+                  <Spinner size={24} />
+                  <span>Processing...</span>
+                </div>
               ) : (
                 <>
                   <Play size={24} className="fill-current group-hover:scale-110 transition-transform" />
-                  <span className="ml-2 uppercase tracking-widest">{isAuto ? 'Execute Protocol' : 'Manual Scan'}</span>
+                  <span className="ml-2 uppercase tracking-widest">Run Pipeline</span>
                   <ArrowRight size={20} className="ml-3 opacity-0 -translate-x-2 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
                 </>
               )}
             </button>
-            
-            <div className={`flex items-center gap-4 px-8 py-3.5 rounded-[1.25rem] border transition-colors duration-500 ${isDarkMode ? 'bg-void/30 border-graphite/40' : 'bg-slate-50 border-slate-100'}`}>
-              <Radio size={16} className="text-volt animate-pulse" />
-              <span className="text-xs font-black uppercase tracking-widest text-main">
-                Link State: <span className={isAuto ? 'text-success' : 'text-volt'}>{isAuto ? 'Autonomous' : 'Command Sync'}</span>
-              </span>
-            </div>
           </div>
         </div>
       </section>
@@ -153,49 +115,43 @@ export function Dashboard() {
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <QuickStatItem
           icon={Newspaper}
-          label="Neural Feeds"
+          label="Articles"
           value={status?.articles ?? 0}
-          subtext="Source Materials"
           onClick={() => navigate('/news')}
           color="volt"
         />
         <QuickStatItem
           icon={PenTool}
-          label="Synth Artifacts"
+          label="Drafts"
           value={status?.drafts ?? 0}
-          subtext="AI Generations"
           onClick={() => navigate('/studio')}
           color="amethyst"
         />
         <QuickStatItem
           icon={Clock}
-          label="Deployment Buffer"
+          label="Scheduled"
           value={status?.pendingSchedules ?? 0}
-          subtext="Verified Queues"
           onClick={() => navigate('/scheduler')}
           color="volt"
         />
         <QuickStatItem
           icon={Send}
-          label="Active Nodes"
+          label="Published"
           value={status?.recentPublishes ?? 0}
-          subtext="Confirmed Deploys"
           onClick={() => navigate('/analytics')}
           color="success"
         />
         <QuickStatItem
           icon={MessageCircle}
-          label="Signal Matrix"
+          label="Messages"
           value="Inbox"
-          subtext="Feedback Loops"
           onClick={() => navigate('/engagement')}
           color="amethyst"
         />
         <QuickStatItem
           icon={Bot}
-          label="Guardian Protocol"
-          value={status?.autoReplyEnabled ? 'Active' : 'Standby'}
-          subtext="Auto-Engagement"
+          label="Auto Reply"
+          value={status?.autoReplyEnabled ? 'On' : 'Off'}
           onClick={() => navigate('/engagement')}
           color={status?.autoReplyEnabled ? 'success' : 'dim'}
         />
@@ -205,12 +161,12 @@ export function Dashboard() {
         {/* Pipeline History column */}
         <div className="lg:col-span-2 space-y-6">
           <Card padding="none" className="overflow-hidden">
-            <div className={`flex items-center justify-between border-b px-8 py-6 ${isDarkMode ? 'border-graphite/40 bg-void/20' : 'border-slate-50 bg-slate-50/50'}`}>
+            <div className={`flex items-center justify-between border-b px-8 py-6 ${isDarkMode ? 'border-graphite/40 bg-void/20' : 'border-graphite/20 bg-stellar/30'}`}>
               <div className="flex items-center gap-3">
                  <ActivityIcon size={18} className="text-volt" />
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Active Log Sequence</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Recent Activity</h3>
               </div>
-              <Badge variant="volt" size="sm" dot>Sync Active</Badge>
+              <Badge variant="volt" size="sm" dot>Active</Badge>
             </div>
             <div className="p-4 space-y-2">
               <AnimatePresence>
@@ -232,14 +188,14 @@ export function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <span className="text-sm font-black text-main">CYCLE #D-{run.id.slice(-6).toUpperCase()}</span>
-                          <Badge variant={run.mode === 'auto' ? 'success' : 'volt'} size="sm" className={isDarkMode ? 'bg-void/40' : 'bg-white'}>
+                          <Badge variant={run.mode === 'auto' ? 'success' : 'volt'} size="sm" className={isDarkMode ? 'bg-void/40' : 'bg-cream'}>
                             {run.mode}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-5 text-[10px] font-black uppercase tracking-widest text-muted">
-                           <span className="flex items-center gap-2"><Newspaper size={14} className="text-volt" /> {run.articles_ingested} Ingest</span>
-                           <span className="flex items-center gap-2"><PenTool size={14} className="text-amethyst" /> {run.drafts_generated} Synth</span>
-                           <span className="flex items-center gap-2"><Zap size={14} className="text-success" /> {run.posts_published} Sync</span>
+                           <span className="flex items-center gap-2"><Newspaper size={14} className="text-volt" /> {run.articles_ingested} Articles</span>
+                           <span className="flex items-center gap-2"><PenTool size={14} className="text-amethyst" /> {run.drafts_generated} Drafts</span>
+                           <span className="flex items-center gap-2"><Send size={14} className="text-success" /> {run.posts_published} Published</span>
                         </div>
                       </div>
                       <div className="text-right hidden sm:block">
@@ -253,75 +209,25 @@ export function Dashboard() {
                 ) : (
                   <div className="py-24 text-center">
                     <div className="mb-6 flex justify-center">
-                        <div className={`p-6 rounded-full border ${isDarkMode ? 'bg-graphite/10 text-graphite/40 border-graphite/40' : 'bg-slate-50 text-slate-300 border-slate-100'}`}>
+                        <div className={`p-6 rounded-full border ${isDarkMode ? 'bg-graphite/10 text-graphite/40 border-graphite/40' : 'bg-stellar/30 text-muted border-graphite/20'}`}>
                             <ActivityIcon size={48} />
                         </div>
                     </div>
-                    <p className="text-xs font-black text-muted uppercase tracking-[0.3em]">No Active Telemetry</p>
+                    <p className="text-xs font-black text-muted uppercase tracking-[0.3em]">No Recent Activity</p>
                   </div>
                 )}
               </AnimatePresence>
             </div>
             {recentRuns.length > 0 && (
-                <div className={`p-5 border-t text-center ${isDarkMode ? 'bg-void/20 border-graphite/40' : 'bg-slate-50/50 border-slate-100'}`}>
+                <div className={`p-5 border-t text-center ${isDarkMode ? 'bg-void/20 border-graphite/40' : 'bg-stellar/30 border-graphite/20'}`}>
                     <button onClick={() => navigate('/analytics')} className="text-[10px] font-black uppercase tracking-[0.2em] text-volt hover:underline">
-                        Access Full Historical Archives
+                        View All Activity
                     </button>
                 </div>
             )}
           </Card>
         </div>
 
-        {/* Action column */}
-        <div className="space-y-6">
-          <Card padding="lg" className="border">
-             <div className="flex items-center gap-3 mb-10">
-                <Shield size={18} className="text-amethyst" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Quick Access Protocols</h3>
-             </div>
-            <div className="space-y-4">
-              <ActionButton 
-                icon={Radio} 
-                label="Initialize Intercept" 
-                desc="Sync with global legal feeds"
-                onClick={() => navigate('/news')}
-                color="volt"
-              />
-              <ActionButton 
-                icon={Sparkles} 
-                label="Synthesize Content" 
-                desc="Author cross-platform briefs"
-                onClick={() => navigate('/studio')}
-                color="amethyst"
-              />
-              <ActionButton 
-                icon={BarChart3} 
-                label="Vector Analysis" 
-                desc="Optimize growth algorithms"
-                onClick={() => navigate('/analytics')}
-                color="success"
-              />
-            </div>
-          </Card>
-
-          {/* AI Guardian Status */}
-          <Card className="p-8 border bg-transparent">
-              <div className="flex items-center gap-6">
-                  <div className={`p-5 rounded-[1.5rem] border transition-all ${status?.autoReplyEnabled ? 'border-success/40 bg-success/10 text-success shadow-glow-success/10' : isDarkMode ? 'border-graphite/40 bg-void/50 text-dim' : 'border-slate-200 bg-slate-50 text-slate-300'}`}>
-                      <Bot size={40} />
-                  </div>
-                  <div>
-                      <p className="text-sm font-black uppercase tracking-widest text-main">Guardian AI</p>
-                      <div className="flex items-center gap-2 mt-2">
-                          <div className={`h-2 w-2 rounded-full ${status?.autoReplyEnabled ? 'bg-success animate-pulse' : 'bg-muted'}`} />
-                          <span className={`text-[10px] font-black tracking-widest ${status?.autoReplyEnabled ? 'text-success' : 'text-muted'}`}>
-                            {status?.autoReplyEnabled ? 'ACTIVE MONITORING' : 'STANDBY MODE'}
-                          </span>
-                      </div>
-                  </div>
-              </div>
-          </Card>
-        </div>
       </div>
     </div>
   )
@@ -357,11 +263,11 @@ function QuickStatItem({
       whileHover={{ y: -6, scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className={`group flex flex-col items-start gap-6 rounded-[2.5rem] border p-8 text-left transition-all duration-500 overflow-hidden ${current.border} ${
-        isDarkMode 
-          ? 'border-graphite/40 bg-stellar/10' 
-          : 'border-slate-200 bg-white shadow-xl shadow-slate-100'
-      }`}
+            className={`group flex flex-col items-start gap-6 rounded-[2.5rem] border p-8 text-left transition-all duration-500 overflow-hidden ${current.border} ${
+              isDarkMode 
+                ? 'border-graphite/40 bg-stellar/10' 
+                : 'border-graphite/20 bg-cream shadow-xl shadow-ink/5'
+            }`}
     >
       <div className={`rounded-2xl p-4 transition-all duration-300 group-hover:scale-110 shadow-sm ${current.icon}`}>
         <Icon size={28} />
@@ -400,7 +306,7 @@ function ActionButton({
       className={`group flex w-full items-center gap-6 rounded-[2rem] border p-6 transition-all duration-500 hover:translate-x-1 ${
         isDarkMode 
           ? 'border-graphite/40 bg-void/30 hover:border-volt/30 hover:bg-void/50 shadow-none' 
-          : 'border-slate-100 bg-slate-50 hover:border-teal-300 hover:bg-white shadow-sm hover:shadow-xl hover:shadow-slate-100'
+          : 'border-graphite/20 bg-stellar/30 hover:border-volt/30 hover:bg-cream shadow-sm hover:shadow-xl hover:shadow-ink/5'
       }`}
     >
       <div className={`shrink-0 rounded-[1.25rem] p-4 transition-all duration-500 ${colors[color]} group-hover:text-white`}>
@@ -410,7 +316,7 @@ function ActionButton({
         <p className="text-xs font-black uppercase tracking-widest mb-1 text-main transition-colors group-hover:text-volt">{label}</p>
         <p className="text-[11px] font-medium text-muted">{desc}</p>
       </div>
-      <ArrowRight size={20} className={`ml-auto opacity-0 -translate-x-4 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 ${isDarkMode ? 'text-dim/40 group-hover:text-volt' : 'text-slate-300 group-hover:text-teal-600'}`} />
+      <ArrowRight size={20} className={`ml-auto opacity-0 -translate-x-4 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 ${isDarkMode ? 'text-dim/40 group-hover:text-volt' : 'text-muted group-hover:text-volt'}`} />
     </button>
   )
 }

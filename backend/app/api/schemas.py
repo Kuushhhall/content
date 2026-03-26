@@ -155,3 +155,16 @@ class BatchDraftOut(BaseModel):
 class AutoSelectOut(BaseModel):
     article_ids: list[str]
     articles: list[ArticleOut] = []
+
+
+class ArticleUpdateIn(BaseModel):
+    title: str | None = None
+    summary_hint: str | None = None
+    structured_summary: str | None = None
+    full_content: str | None = None
+    court_name: str | None = None
+    case_number: str | None = None
+    judges_involved: list[str] | None = None
+    parties: list[str] | None = None
+    jurisdiction: str | None = None
+    precedent_value: Literal["high", "medium", "low"] | None = None

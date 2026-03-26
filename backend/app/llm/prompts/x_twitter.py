@@ -61,6 +61,45 @@ tweet 3
 tweet 4
 """
 
+def build_x_combined_prompt(article: NormalizedArticle, framer_url: str = "") -> str:
+    """Build a SINGLE prompt that generates both summary AND X/Twitter thread."""
+    framer_context = f"\nFramer Article: {framer_url}" if framer_url else ""
+    return f"""
+{LAWXY_REPORTER_PERSONA}
+
+### THE ASSIGNMENT
+Analyze this legal article and create an X (Twitter) thread.
+
+### OUTPUT FORMAT (JSON)
+Return a JSON object with exactly two fields:
+{{
+  "summary": "3-5 sentence summary capturing the key legal development, what it means, and why it matters",
+  "draft": "The tweet content separated by '---'"
+}}
+
+### ARTICLE TO ANALYZE
+Title: {article.title}
+Source: {article.source}
+URL: {article.url}
+Content:
+{article.full_content or article.summary_hint or article.raw_excerpt or "(no content available)"}
+{framer_context}
+
+### THREAD RULES
+- 3-5 tweets maximum
+- Each tweet max 280 characters
+- Use "---" (three dashes) to separate tweets
+- Tweet 1: Sharp hook + core news
+- Tweets 2-5: Clarify facts, add deeper implications, non-obvious insights
+- Final tweet: Push to full article with link
+- Include ONE hashtag
+- Later tweets should be MORE analytical than earlier ones
+- Build intellectual depth across the thread
+
+Return ONLY the JSON object, no other text.
+"""
+
+
 def split_x_thread(text: str) -> list[str]:
     """Split the generated text into individual tweets based on the delimiter."""
     parts = [p.strip() for p in text.split("---")]

@@ -11,7 +11,7 @@ export function ThemeToggle() {
         console.log('[ThemeToggle] Switching from:', isDarkMode ? 'Dark' : 'Light');
         toggleDarkMode();
       }}
-      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-graphite/40 bg-stellar/50 text-dim transition-all hover:border-volt/30 hover:text-volt active:scale-90"
+      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-graphite/40 bg-stellar/50 text-dim transition-all hover:border-volt/30 hover:text-volt active:scale-90 dark:hover:border-volt/30 dark:hover:text-volt light:hover:border-volt/30 light:hover:text-volt"
       title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
     >
       <AnimatePresence mode="wait" initial={false}>

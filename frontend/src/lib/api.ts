@@ -40,6 +40,18 @@ export const api = {
     params.append('order', order)
     return request<PaginatedResponse<Article>>(`/articles?${params.toString()}`)
   },
+  deleteArticle: (articleId: string) =>
+    request<{ success: boolean; deleted_id: string }>(`/articles/${articleId}`, { method: 'DELETE' }),
+  updateArticle: (articleId: string, updates: Partial<Article>) =>
+    request<Article>(`/articles/${articleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+  searchNews: (query: string, maxResults = 10, searchDepth = 'basic') =>
+    request<{ items: Article[]; total: number; upserted: number }>('/articles/search', {
+      method: 'POST',
+      body: JSON.stringify({ query, max_results: maxResults, search_depth: searchDepth }),
+    }),
 
   // Drafts
   listDrafts: (articleId?: string, page = 1, pageSize = 20) => {
@@ -59,6 +71,8 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ body }),
     }),
+  regenerateDraft: (draftId: string) =>
+    request<Draft>(`/drafts/${draftId}/regenerate`, { method: 'POST' }),
 
   // Publish
   publishNow: (draftId: string) =>

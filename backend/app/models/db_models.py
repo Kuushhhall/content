@@ -156,7 +156,7 @@ class ArticleSummaryDB(Base):
 class DraftDB(Base):
     __tablename__ = "drafts"
 
-    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
     article_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("articles.id", ondelete="CASCADE"), nullable=False
     )
@@ -181,7 +181,7 @@ class ScheduleDB(Base):
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     draft_id: Mapped[str] = mapped_column(
-        String(50), ForeignKey("drafts.id", ondelete="CASCADE"), nullable=False
+        String(100), ForeignKey("drafts.id", ondelete="CASCADE"), nullable=False
     )
     platform: Mapped[str] = mapped_column(String(50), nullable=False)
     run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -203,7 +203,7 @@ class PublishResultDB(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     job_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     draft_id: Mapped[str | None] = mapped_column(
-        String(50), ForeignKey("drafts.id", ondelete="SET NULL"), nullable=True
+        String(100), ForeignKey("drafts.id", ondelete="SET NULL"), nullable=True
     )
     platform: Mapped[str] = mapped_column(String(50), nullable=False)
     success: Mapped[bool] = mapped_column(Boolean, nullable=False)

@@ -12,7 +12,8 @@ import {
   X,
   Maximize2,
   Calendar,
-  Globe
+  Globe,
+  Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -23,20 +24,31 @@ import { Badge } from '../components/Badge'
 import { Spinner } from '../components/Spinner'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonList } from '../components/Skeleton'
+import { SearchNewsModal } from '../components/SearchNewsModal'
+import { ModalPortal } from '../components/ModalPortal'
 import { api } from '../lib/api'
 import { useUIStore } from '../store/uiStore'
 import type { Article } from '../types'
 
 function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return 'Unknown date'
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
+  if (!dateStr) return 'Recently fetched'
+  try {
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return 'Recently fetched'
+    
+    const diff = Date.now() - date.getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Just now'
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    const days = Math.floor(hrs / 24)
+    if (days < 7) return `${days}d ago`
+    if (days < 30) return `${Math.floor(days / 7)}w ago`
+    return `${Math.floor(days / 30)}mo ago`
+  } catch {
+    return 'Recently fetched'
+  }
 }
 
 const kindBadge: Record<string, string> = {
@@ -53,6 +65,7 @@ export function NewsFeed() {
   
   const [search, setSearch] = useState('')
   const [modalArticle, setModalArticle] = useState<Article | null>(null)
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ['articles'],
@@ -69,6 +82,26 @@ export function NewsFeed() {
       toast.error(`Ingestion failed: ${(err as Error).message}`)
     },
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: api.deleteArticle,
+    onSuccess: (_, articleId) => {
+      queryClient.invalidateQueries({ queryKey: ['articles'] })
+      toast.success('Article deleted successfully')
+      // Close modal if the deleted article was being viewed
+      if (modalArticle?.id === articleId) {
+        setModalArticle(null)
+      }
+    },
+    onError: (err) => {
+      toast.error(`Delete failed: ${(err as Error).message}`)
+    },
+  })
+
+  const handleDelete = (articleId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    deleteMutation.mutate(articleId)
+  }
 
   const filtered = (articles?.items ?? []).filter(
     (a) =>
@@ -98,14 +131,19 @@ export function NewsFeed() {
             className="input-field h-14 pl-14 pr-6 text-base font-medium"
           />
         </div>
-        <button
-          onClick={() => ingestMutation.mutate()}
-          disabled={ingestMutation.isPending}
-          className="btn-primary h-14 px-10 gap-3 group/btn"
-        >
-          {ingestMutation.isPending ? <Spinner size={20} /> : <RefreshCw size={20} className="group-hover/btn:rotate-180 transition-transform duration-500" />}
-          <span>REFRESH INTELLIGENCE</span>
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setIsSearchModalOpen(true)}
+            className={`h-14 px-8 gap-3 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all ${
+              isDarkMode 
+                ? 'border-graphite/40 bg-stellar/20 text-silver hover:bg-white/5 hover:border-volt/30' 
+                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-teal-300 shadow-sm'
+            }`}
+          >
+            <Search size={18} />
+            <span>SEARCH NEWS</span>
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -120,7 +158,7 @@ export function NewsFeed() {
         </Card>
       ) : (
         <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((article) => {
+          {filtered.map((article, index) => {
             const selected = selectedArticleId === article.id
             const ci = article.content_intelligence
             const isViral = ci && ci.virality_score >= 0.4
@@ -142,6 +180,7 @@ export function NewsFeed() {
                 <div className="p-8 flex-1">
                   <div className="mb-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
+                       <span className="text-[10px] font-black text-volt">#{index + 1}</span>
                        <div className={`rounded-xl px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${kindBadge[article.kind] || 'bg-graphite/20 text-dim border-graphite/40'}`}>
                         {article.kind}
                       </div>
@@ -170,7 +209,7 @@ export function NewsFeed() {
                   )}
 
                   <p className="line-clamp-3 text-xs leading-relaxed transition-colors text-muted">
-                    {article.structured_summary || article.summary_hint || 'Decoding tactical information...'}
+                    {article.structured_summary || article.summary_hint || 'Loading summary...'}
                   </p>
                 </div>
 
@@ -206,6 +245,18 @@ export function NewsFeed() {
                     >
                       <ExternalLink size={18} />
                     </a>
+                    <button
+                      onClick={(e) => handleDelete(article.id, e)}
+                      disabled={deleteMutation.isPending}
+                      className={`p-3 rounded-2xl transition-all ${
+                        isDarkMode 
+                          ? 'text-dim hover:text-danger hover:bg-danger/10' 
+                          : 'text-slate-400 hover:text-red-600 hover:bg-red-50 shadow-sm border border-slate-100'
+                      }`}
+                      title="Delete article"
+                    >
+                      {deleteMutation.isPending ? <Spinner size={18} /> : <Trash2 size={18} />}
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -217,23 +268,24 @@ export function NewsFeed() {
       {/* Intelligence Modal */}
       <AnimatePresence>
         {modalArticle && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setModalArticle(null)}
-              className="absolute inset-0 bg-void/80 backdrop-blur-3xl"
-            />
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 40 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 40 }}
-              className={`relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-[3rem] border transition-all duration-500 shadow-2xl ${
-                isDarkMode ? 'border-graphite/40 bg-stellar/40' : 'border-slate-200 bg-white shadow-2xl shadow-slate-900/10'
-              }`}
-            >
+          <ModalPortal>
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setModalArticle(null)}
+                className="absolute inset-0 bg-void/80 backdrop-blur-3xl"
+              />
+              
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 40 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 40 }}
+                className={`relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-[3rem] border transition-all duration-500 shadow-2xl ${
+                  isDarkMode ? 'border-graphite/40 bg-stellar/40' : 'border-slate-200 bg-white shadow-2xl shadow-slate-900/10'
+                }`}
+              >
               {/* Modal Header */}
               <div className={`flex items-center justify-between p-8 border-b ${isDarkMode ? 'border-graphite/40 bg-void/40' : 'border-slate-100 bg-slate-50'}`}>
                 <div className="flex items-center gap-4">
@@ -241,7 +293,7 @@ export function NewsFeed() {
                     <Sparkles size={24} />
                   </div>
                   <div>
-                    <h4 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-dim' : 'text-slate-400'}`}>Tactical Intelligence Report</h4>
+                    <h4 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-dim' : 'text-slate-400'}`}>Article Details</h4>
                     <p className={`text-xs font-bold ${isDarkMode ? 'text-silver' : 'text-slate-900'}`}>{modalArticle.source} • {modalArticle.id}</p>
                   </div>
                 </div>
@@ -258,7 +310,15 @@ export function NewsFeed() {
                 <div className="flex flex-wrap gap-4 mb-8">
                   <Badge variant="volt" size="md">{modalArticle.kind.toUpperCase()}</Badge>
                   <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-graphite/20 bg-void/30 text-xs font-bold text-muted">
-                    <Calendar size={14} className="text-amethyst" /> {new Date(modalArticle.published_at!).toLocaleDateString()}
+                    <Calendar size={14} className="text-amethyst" /> 
+                    {modalArticle.published_at 
+                      ? new Date(modalArticle.published_at).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })
+                      : 'Recently fetched'
+                    }
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-graphite/20 bg-void/30 text-xs font-bold text-muted">
                     <Globe size={14} className="text-volt" /> {modalArticle.source}
@@ -275,7 +335,7 @@ export function NewsFeed() {
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
                          <div className="h-1 w-8 rounded-full bg-volt" />
-                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-volt">Executive Summary</span>
+                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-volt">Summary</span>
                       </div>
                       <p className="text-lg leading-relaxed text-muted font-medium">
                         {modalArticle.structured_summary || modalArticle.summary_hint || "Summary analysis in progress..."}
@@ -287,7 +347,7 @@ export function NewsFeed() {
                         <div className="flex items-center gap-3">
                           <div className={`h-1 w-8 rounded-full ${modalArticle.full_content ? 'bg-amethyst' : 'bg-dim/20'}`} />
                           <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${modalArticle.full_content ? 'text-amethyst' : 'text-muted'}`}>
-                            {modalArticle.full_content ? 'Full Intelligence Report' : 'Expanded Intelligence Summary'}
+                            {modalArticle.full_content ? 'Full Article' : 'Summary'}
                           </span>
                         </div>
                         <div className={`prose max-w-none transition-colors duration-500 ${isDarkMode ? 'prose-invert' : 'prose-slate'}`}>
@@ -303,11 +363,11 @@ export function NewsFeed() {
                     {/* AI Insights Card */}
                     <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-stellar/20 border-graphite/40' : 'bg-slate-50 border-slate-200'}`}>
                       <h5 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-volt mb-6">
-                        <TrendingUp size={14} /> Neural Metrics
+                        <TrendingUp size={14} /> Metrics
                       </h5>
                       <div className="space-y-6">
                         <div>
-                          <p className="text-[10px] font-bold text-muted mb-1 uppercase">Virality Vector</p>
+                          <p className="text-[10px] font-bold text-muted mb-1 uppercase">Virality Score</p>
                           <div className="flex items-center gap-3">
                             <div className="flex-1 h-1.5 rounded-full bg-graphite/20 overflow-hidden">
                                <motion.div 
@@ -321,7 +381,7 @@ export function NewsFeed() {
                         </div>
                         
                         <div>
-                          <p className="text-[10px] font-bold text-muted mb-3 uppercase">Key Intelligence Pieces</p>
+                          <p className="text-[10px] font-bold text-muted mb-3 uppercase">Key Insights</p>
                           <div className="space-y-3">
                             {modalArticle.content_intelligence?.key_insights?.map((ins, i) => (
                               <div key={i} className="flex gap-3 text-xs leading-relaxed text-muted">
@@ -343,7 +403,7 @@ export function NewsFeed() {
                          }}
                          className="w-full btn-primary h-14"
                        >
-                         <Sparkles size={18} /> INITIATE DRAFT
+                         <Sparkles size={18} /> Create Draft
                        </button>
                        <a
                          href={modalArticle.url}
@@ -353,7 +413,7 @@ export function NewsFeed() {
                            isDarkMode ? 'border-graphite/40 bg-stellar/20 text-silver hover:bg-white/5' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
                          }`}
                        >
-                         <ExternalLink size={18} /> SOURCE URL
+                         <ExternalLink size={18} /> View Source
                        </a>
                     </div>
                   </div>
@@ -361,8 +421,15 @@ export function NewsFeed() {
               </div>
             </motion.div>
           </div>
+          </ModalPortal>
         )}
       </AnimatePresence>
+
+      {/* Search News Modal */}
+      <SearchNewsModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+      />
     </div>
   )
 }

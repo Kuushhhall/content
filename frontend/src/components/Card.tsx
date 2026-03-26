@@ -23,7 +23,7 @@ export function Card({ children, className = '', hover = false, padding = 'md', 
       className={`rounded-[2.5rem] border transition-all duration-500 ${paddings[padding]} ${
         isDarkMode 
           ? 'border-graphite/40 bg-stellar/20 shadow-none' 
-          : 'border-slate-200 bg-white shadow-xl shadow-slate-100/50 text-slate-900'
+          : 'border-graphite/20 bg-cream shadow-xl shadow-ink/5 text-ink'
       } ${
         hover ? 'hover:scale-[1.01] hover:shadow-2xl' : ''
       } ${className}`}
