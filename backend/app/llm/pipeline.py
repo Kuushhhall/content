@@ -113,7 +113,7 @@ async def generate_draft(
         # Try to find a framer draft to link to
         if use_db:
             draft_repo = DraftRepository(session_or_store)
-            drafts = await draft_repo.list_drafts(article_id=article.id)
+            drafts, _ = await draft_repo.list_drafts(article_id=article.id)
             framer_draft = next((d for d in drafts if d.platform == "framer"), None)
         else:
             drafts = session_or_store.list_drafts(article.id)
