@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import SettingsDep, StoreDep
 from app.api.schemas import PublishNowIn, PublishResultOut, ScheduleIn, ScheduleOut
@@ -28,19 +28,37 @@ def publish_now(
     )
 
 
-@router.get("/publish/results", response_model=list[PublishResultOut])
-def list_results(store: StoreDep, limit: int = 50) -> list[PublishResultOut]:
-    rows = store.recent_publish_results(limit=limit)
-    return [
-        PublishResultOut(
-            platform=r.platform,
-            success=r.success,
-            external_id=r.external_id,
-            message=r.message,
-            at=r.at,
-        )
-        for r in rows
-    ]
+@router.get("/publish/results", response_model=dict)
+def list_results(
+    store: StoreDep,
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> dict:
+    """List publish results with pagination."""
+    all_results = store.recent_publish_results(limit=1000)  # Get all for pagination
+    total = len(all_results)
+    
+    # Apply pagination
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    paginated_results = all_results[start_idx:end_idx]
+    
+    return {
+        "items": [
+            PublishResultOut(
+                platform=r.platform,
+                success=r.success,
+                external_id=r.external_id,
+                message=r.message,
+                at=r.at,
+            )
+            for r in paginated_results
+        ],
+        "total": total,
+        "page": page,
+        "page_size": limit,
+        "pages": (total + limit - 1) // limit if total > 0 else 1,
+    }
 
 
 @router.post("/schedule", response_model=ScheduleOut)
@@ -66,19 +84,39 @@ def create_schedule(body: ScheduleIn, store: StoreDep) -> ScheduleOut:
     )
 
 
-@router.get("/schedule", response_model=list[ScheduleOut])
-def list_schedule(store: StoreDep, status: str | None = None) -> list[ScheduleOut]:
-    return [
-        ScheduleOut(
-            id=s.id,
-            draft_id=s.draft_id,
-            platform=s.platform,
-            run_at=s.run_at,
-            status=s.status,
-            error=s.error,
-        )
-        for s in store.list_schedules(status=status)
-    ]
+@router.get("/schedule", response_model=dict)
+def list_schedule(
+    store: StoreDep,
+    status: str | None = None,
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> dict:
+    """List schedules with pagination."""
+    all_schedules = store.list_schedules(status=status)
+    total = len(all_schedules)
+    
+    # Apply pagination
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    paginated_schedules = all_schedules[start_idx:end_idx]
+    
+    return {
+        "items": [
+            ScheduleOut(
+                id=s.id,
+                draft_id=s.draft_id,
+                platform=s.platform,
+                run_at=s.run_at,
+                status=s.status,
+                error=s.error,
+            )
+            for s in paginated_schedules
+        ],
+        "total": total,
+        "page": page,
+        "page_size": limit,
+        "pages": (total + limit - 1) // limit if total > 0 else 1,
+    }
 
 
 @router.delete("/schedule/{schedule_id}", response_model=ScheduleOut)

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, AsyncGenerator
 
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,8 +16,12 @@ def get_app_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
-async def get_db_session(request: Request) -> AsyncSession | None:
-    """Get database session if database is configured."""
+async def get_db_session(request: Request) -> AsyncGenerator[AsyncSession | None, None]:
+    """Get database session if database is configured.
+    
+    The session is kept open for the duration of the request and
+    automatically committed/rolled back when the dependency exits.
+    """
     db = getattr(request.app.state, "db", None)
     if db:
         async with db.session() as session:
