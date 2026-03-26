@@ -53,10 +53,10 @@ export function EngagementHub() {
   })
 
   const autoReplyEnabled = status?.autoReplyEnabled ?? false
-  const newCount = comments?.filter((c) => c.status === 'new').length ?? 0
-  const repliedCount = comments?.filter((c) => c.status === 'replied').length ?? 0
+  const newCount = comments?.items?.filter((c) => c.status === 'new').length ?? 0
+  const repliedCount = comments?.items?.filter((c) => c.status === 'replied').length ?? 0
 
-  const filtered = (comments ?? []).filter((c) => {
+  const filtered = (comments?.items ?? []).filter((c) => {
     if (!filterStatus) return true
     if (filterStatus === 'high_intent' && scanResult) {
       return scanResult.high_intent_ids.includes(c.id)
@@ -65,7 +65,7 @@ export function EngagementHub() {
   })
 
   const filterOptions = [
-    { key: '', label: 'Total Feed', count: comments?.length ?? 0 },
+    { key: '', label: 'Total Feed', count: comments?.total ?? 0 },
     { key: 'new', label: 'New Intelligence', count: newCount },
     { key: 'replied', label: 'Processed', count: repliedCount },
     ...(scanResult

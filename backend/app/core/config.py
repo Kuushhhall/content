@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     data_dir: Path = Path(__file__).resolve().parent.parent.parent / "data"
     state_file: str = "state.json"
 
+    # Database (PostgreSQL)
+    database_url: str | None = None
+
     # LLM (OpenAI-compatible: works with OpenAI, Groq, Azure, etc.)
     openai_api_key: str | None = None
     openai_base_url: str | None = None

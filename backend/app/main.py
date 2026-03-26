@@ -8,6 +8,7 @@ from app.api.routes import api_router
 from app.api.ws import register_ws_routes
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.database import init_database, close_database, get_database
 from app.scheduler.jobs import build_scheduler
 from app.state.store import StateStore
 
@@ -16,6 +17,12 @@ from app.state.store import StateStore
 async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.debug)
+    
+    # Initialize database if configured
+    db = await init_database(settings)
+    app.state.db = db
+    
+    # Initialize state store (fallback to JSON if no DB)
     store = StateStore(settings.state_path)
     app.state.store = store
     app.state.settings = settings
@@ -27,7 +34,10 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     app.state.scheduler = scheduler
     yield
+    
+    # Cleanup
     scheduler.shutdown(wait=False)
+    await close_database()
 
 
 def create_app() -> FastAPI:

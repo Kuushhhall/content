@@ -56,7 +56,7 @@ export function NewsFeed() {
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ['articles'],
-    queryFn: api.listArticles,
+    queryFn: () => api.listArticles(),
   })
 
   const ingestMutation = useMutation({
@@ -70,7 +70,7 @@ export function NewsFeed() {
     },
   })
 
-  const filtered = (articles ?? []).filter(
+  const filtered = (articles?.items ?? []).filter(
     (a) =>
       !search ||
       a.title.toLowerCase().includes(search.toLowerCase()) ||

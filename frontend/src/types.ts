@@ -2,6 +2,15 @@ export type TabKey = 'dashboard' | 'news' | 'studio' | 'scheduler' | 'engagement
 
 export type Platform = 'linkedin' | 'x' | 'reddit' | 'framer' | 'medium' | 'instagram'
 
+// Generic paginated response from the new PostgreSQL backend
+export type PaginatedResponse<T> = {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
 export type ContentIntelligence = {
   topic: string
   legal_area: string

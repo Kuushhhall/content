@@ -30,7 +30,7 @@ import { EmptyState } from '../components/EmptyState'
 import { Spinner } from '../components/Spinner'
 import { PlatformIcon, getPlatformLabel } from '../components/PlatformIcon'
 import { api } from '../lib/api'
-import type { AnalyticsOverview, PublishResult } from '../types'
+import type { AnalyticsOverview, PaginatedResponse, PublishResult } from '../types'
 
 const PIE_COLORS = ['#00F2FF', '#9D4EDD', '#FF00A0', '#00FF9C', '#FFD700'] // Volt, Amethyst, Hot Pink, Emerald, Gold
 
@@ -51,9 +51,9 @@ export function Analytics() {
     queryFn: api.analyticsOverview,
   })
 
-  const { data: publishResults } = useQuery<PublishResult[]>({
+  const { data: publishResults } = useQuery<PaginatedResponse<PublishResult>>({
     queryKey: ['publishResults'],
-    queryFn: api.listPublishResults,
+    queryFn: () => api.listPublishResults(),
   })
 
   const chartData = useMemo(
@@ -228,7 +228,7 @@ export function Analytics() {
       </div>
 
       {/* Recent publish results */}
-      {publishResults && publishResults.length > 0 && (
+      {publishResults?.items && publishResults.items.length > 0 && (
         <Card padding="none" className="overflow-hidden border-graphite/40">
            <div className="p-6 border-b border-graphite/40 bg-void/20 flex items-center justify-between">
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-dim">
@@ -248,7 +248,7 @@ export function Analytics() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-graphite/20">
-                {publishResults.slice(0, 20).map((r, i) => (
+                {publishResults?.items.slice(0, 20).map((r, i) => (
                   <tr key={i} className="group hover:bg-volt/5 transition-colors">
                     <td className="px-6 py-5">
                       <PlatformIcon platform={r.platform} size={18} showLabel className="font-bold scale-90" />

@@ -6,6 +6,7 @@ import type {
   Draft,
   EngagementComment,
   EngagementScanResult,
+  PaginatedResponse,
   PipelineRun,
   PipelineStatus,
   Platform,
@@ -30,11 +31,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   // Articles
   ingest: () => request<{ upserted: number }>('/articles/ingest', { method: 'POST' }),
-  listArticles: () => request<Article[]>('/articles'),
+  listArticles: (page = 1, pageSize = 20, source?: string, sort_by = 'published_at', order = 'desc') => {
+    const params = new URLSearchParams()
+    params.append('page', page.toString())
+    params.append('page_size', pageSize.toString())
+    if (source) params.append('source', source)
+    params.append('sort_by', sort_by)
+    params.append('order', order)
+    return request<PaginatedResponse<Article>>(`/articles?${params.toString()}`)
+  },
 
   // Drafts
-  listDrafts: (articleId?: string) =>
-    request<Draft[]>(`/drafts${articleId ? `?article_id=${encodeURIComponent(articleId)}` : ''}`),
+  listDrafts: (articleId?: string, page = 1, pageSize = 20) => {
+    const params = new URLSearchParams()
+    params.append('page', page.toString())
+    params.append('page_size', pageSize.toString())
+    if (articleId) params.append('article_id', articleId)
+    return request<PaginatedResponse<Draft>>(`/drafts?${params.toString()}`)
+  },
   generateDraft: (articleId: string, platform: string) =>
     request<Draft>('/drafts/generate', {
       method: 'POST',
@@ -52,7 +66,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ draft_id: draftId }),
     }),
-  listPublishResults: () => request<PublishResult[]>('/publish/results?limit=100'),
+  listPublishResults: (page = 1, pageSize = 20) => 
+    request<PaginatedResponse<PublishResult>>(`/publish/results?page=${page}&limit=${pageSize}`),
 
   // Schedule
   createSchedule: (draftId: string, platform: string, runAt: string) =>
@@ -60,15 +75,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ draft_id: draftId, platform, run_at: runAt }),
     }),
-  listSchedules: () => request<Schedule[]>('/schedule'),
+  listSchedules: (page = 1, pageSize = 20) => 
+    request<PaginatedResponse<Schedule>>(`/schedule?page=${page}&limit=${pageSize}`),
   cancelSchedule: (scheduleId: string) =>
     request<Schedule>(`/schedule/${scheduleId}`, { method: 'DELETE' }),
 
   // Engagement
-  listComments: (platform?: string) =>
-    request<EngagementComment[]>(
-      `/engagement/comments${platform ? `?platform=${encodeURIComponent(platform)}` : ''}`,
-    ),
+  listComments: (platform?: string, page = 1, pageSize = 20) => {
+    const params = new URLSearchParams()
+    params.append('page', page.toString())
+    params.append('page_size', pageSize.toString())
+    if (platform) params.append('platform', platform)
+    return request<PaginatedResponse<EngagementComment>>(`/engagement/comments?${params.toString()}`)
+  },
   replyComment: (commentId: string, replyText: string) =>
     request<EngagementComment>('/engagement/reply', {
       method: 'POST',

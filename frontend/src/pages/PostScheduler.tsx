@@ -29,7 +29,7 @@ export function PostScheduler() {
 
   const { data: schedules, isLoading } = useQuery({
     queryKey: ['schedules'],
-    queryFn: api.listSchedules,
+    queryFn: () => api.listSchedules(),
   })
 
   const cancelMutation = useMutation({
@@ -41,7 +41,7 @@ export function PostScheduler() {
     onError: () => toast.error('Failed to cancel schedule'),
   })
 
-  const filtered = (schedules ?? []).filter((s) => {
+  const filtered = (schedules?.items ?? []).filter((s) => {
     const matchesFilter = !filter || s.status === filter
     const matchesSearch = !search || 
       getPlatformLabel(s.platform).toLowerCase().includes(search.toLowerCase()) ||
@@ -50,10 +50,10 @@ export function PostScheduler() {
   })
 
   const counts = {
-    all: schedules?.length ?? 0,
-    pending: schedules?.filter((s) => s.status === 'pending').length ?? 0,
-    completed: schedules?.filter((s) => s.status === 'completed').length ?? 0,
-    failed: schedules?.filter((s) => s.status === 'failed').length ?? 0,
+    all: schedules?.items?.length ?? 0,
+    pending: schedules?.items?.filter((s) => s.status === 'pending').length ?? 0,
+    completed: schedules?.items?.filter((s) => s.status === 'completed').length ?? 0,
+    failed: schedules?.items?.filter((s) => s.status === 'failed').length ?? 0,
   }
 
   const filters: { key: StatusFilter; label: string; count: number }[] = [

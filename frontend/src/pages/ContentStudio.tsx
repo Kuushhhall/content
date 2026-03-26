@@ -57,9 +57,9 @@ export function ContentStudio() {
   // Queries
   const articleQuery = useQuery({
     queryKey: ['articles'],
-    queryFn: api.listArticles,
+    queryFn: () => api.listArticles(),
   })
-  const selectedArticle = articleQuery.data?.find((a) => a.id === selectedArticleId)
+  const selectedArticle = articleQuery.data?.items?.find((a) => a.id === selectedArticleId)
 
   const draftsQuery = useQuery({
     queryKey: ['drafts', selectedArticleId],
@@ -415,11 +415,11 @@ export function ContentStudio() {
         }`}>
           <div className="mb-8 flex items-center justify-between">
             <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-dim' : 'text-slate-400'}`}>Historical Units</h3>
-            <Badge variant="volt" size="sm">{draftsQuery.data?.length || 0}</Badge>
+            <Badge variant="volt" size="sm">{draftsQuery.data?.items?.length || 0}</Badge>
           </div>
           
           <div className="flex-1 space-y-4 overflow-y-auto pr-3 custom-scrollbar">
-            {draftsQuery.data?.map((draft) => (
+            {draftsQuery.data?.items?.map((draft) => (
               <button
                 key={draft.id}
                 onClick={() => {
