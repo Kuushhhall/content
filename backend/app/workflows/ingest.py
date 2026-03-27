@@ -6,18 +6,16 @@ from app.core.config import Settings
 from app.sources import rss as rss_sources
 from app.sources import tavily_client
 from app.state.store import StateStore
-from app.llm.service import LLMService
 
 log = logging.getLogger(__name__)
 
 
-async def run_ingestion_enhanced(session_or_store: Union[object, StateStore], settings: Settings, llm_service: LLMService) -> int:
-    """Enhanced ingestion with content intelligence. Returns count of new/updated articles.
+async def run_ingestion(session_or_store: Union[object, StateStore], settings: Settings) -> int:
+    """Basic ingestion without LLM calls. Returns count of new/updated articles.
     
     Args:
         session_or_store: Either an AsyncSession (for PostgreSQL) or StateStore (for in-memory)
         settings: Application settings
-        llm_service: LLM service for content intelligence
     """
     from sqlalchemy.ext.asyncio import AsyncSession
     from app.repositories.articles import ArticleRepository
@@ -36,16 +34,13 @@ async def run_ingestion_enhanced(session_or_store: Union[object, StateStore], se
     articles = rss_sources.ingest_all_rss(settings)
     articles.extend(tavily_client.search_scc_legal_news(settings))
     
-    # Enhanced processing pipeline
+    # Basic processing pipeline (no LLM calls)
     if articles:
         # 1. Deduplicate articles
         articles = rss_sources.deduplicate_articles(articles)
         
-        # 2. Score for virality
+        # 2. Score for virality (basic scoring without LLM)
         articles = rss_sources.score_articles_for_virality(articles)
-        
-        # 3. Process with content intelligence
-        articles = await rss_sources.process_articles_with_intelligence(articles, llm_service)
     
     # Upsert processed articles
     for article in articles:
@@ -118,16 +113,3 @@ async def run_ingestion_enhanced(session_or_store: Union[object, StateStore], se
     return count
 
 
-async def run_ingestion(session_or_store: Union[object, StateStore], settings: Settings) -> int:
-    """Ingestion with deduplication, virality scoring, and intelligence extraction."""
-    # Create LLM service - pass store if available, otherwise None
-    if isinstance(session_or_store, StateStore):
-        llm_service = LLMService(settings, session_or_store)
-    else:
-        # For database mode, we need a store for LLM service
-        # Create a temporary in-memory store for LLM caching
-        from app.state.store import StateStore
-        temp_store = StateStore(settings.state_path)
-        llm_service = LLMService(settings, temp_store)
-    
-    return await run_ingestion_enhanced(session_or_store, settings, llm_service)

@@ -10,40 +10,57 @@ from app.models.publish import PublishResult
 
 log = logging.getLogger(__name__)
 
-LINKEDIN_UGC_URL = "https://api.linkedin.com/v2/ugcPosts"
+# New Posts API endpoint (replaces deprecated UGC Posts API)
+LINKEDIN_POSTS_URL = "https://api.linkedin.com/rest/posts"
+LINKEDIN_VERSION = "202401"
 
 
 def publish(draft: ContentDraft, settings: Settings) -> PublishResult:
-    if not settings.linkedin_access_token or not settings.linkedin_person_urn:
+    if not settings.linkedin_access_token:
         return PublishResult(
             platform="linkedin",
             success=False,
-            message="Missing LINKEDIN_ACCESS_TOKEN or LINKEDIN_PERSON_URN",
+            message="Missing LINKEDIN_ACCESS_TOKEN",
         )
 
-    author = settings.linkedin_person_urn
-    if not author.startswith("urn:"):
-        author = f"urn:li:person:{author}"
+    # Determine author URN - prefer organization ID for company page posting
+    if settings.linkedin_organization_id:
+        author = f"urn:li:organization:{settings.linkedin_organization_id}"
+    elif settings.linkedin_person_urn:
+        author = settings.linkedin_person_urn
+        if not author.startswith("urn:"):
+            author = f"urn:li:person:{author}"
+    else:
+        return PublishResult(
+            platform="linkedin",
+            success=False,
+            message="Missing LINKEDIN_ORGANIZATION_ID or LINKEDIN_PERSON_URN",
+        )
 
+    # New Posts API payload structure
     payload = {
         "author": author,
-        "lifecycleState": "PUBLISHED",
-        "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": draft.body},
-                "shareMediaCategory": "NONE",
-            }
+        "commentary": draft.body,
+        "visibility": "PUBLIC",
+        "distribution": {
+            "feedDistribution": "MAIN_FEED",
+            "targetEntities": [],
+            "thirdPartyDistributionChannels": []
         },
-        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
+        "lifecycleState": "PUBLISHED",
+        "isReshareDisabledByAuthor": False
     }
+    
+    # Required headers for Posts API
     headers = {
         "Authorization": f"Bearer {settings.linkedin_access_token}",
         "Content-Type": "application/json",
         "X-Restli-Protocol-Version": "2.0.0",
+        "LinkedIn-Version": LINKEDIN_VERSION,
     }
     try:
         with httpx.Client(timeout=60.0) as client:
-            r = client.post(LINKEDIN_UGC_URL, headers=headers, content=json.dumps(payload))
+            r = client.post(LINKEDIN_POSTS_URL, headers=headers, content=json.dumps(payload))
             if r.status_code >= 400:
                 error_msg = f"LinkedIn API error: HTTP {r.status_code}: {r.text[:500]}"
                 log.error(error_msg)

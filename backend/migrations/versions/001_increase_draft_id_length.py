@@ -43,7 +43,7 @@ def downgrade() -> None:
                existing_nullable=False)
     
     # Revert foreign key references
-    op.alter_column('schedules', 'draft_id',
+    op.alter_column('schedules', 'draft_id',    
                existing_type=sa.String(100),
                type_=sa.String(50),
                existing_nullable=False)

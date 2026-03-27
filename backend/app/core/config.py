@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Publishers — LinkedIn (OAuth2 three-legged in production; token when pre-authorized)
     linkedin_access_token: str | None = None
     linkedin_person_urn: str | None = None  # urn:li:person:...
+    linkedin_organization_id: str | None = None  # For company page posting
 
     # X (Twitter) OAuth 1.0a
     twitter_api_key: str | None = None

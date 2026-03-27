@@ -7,6 +7,8 @@ import {
   MessageSquare,
   BarChart3,
   Zap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { NavLink, useLocation, Link } from 'react-router-dom'
 import { useUIStore } from '../store/uiStore'
@@ -22,7 +24,7 @@ const navItems = [
 ]
 
 export function Sidebar() {
-  const { isMenuOpen, setMenuOpen, isDarkMode } = useUIStore()
+  const { isMenuOpen, setMenuOpen, isDarkMode, isSidebarCollapsed, setSidebarCollapsed } = useUIStore()
   const status = useStatusSocket()
   const location = useLocation()
 
@@ -41,29 +43,33 @@ export function Sidebar() {
       </AnimatePresence>
 
       <aside
-        className={`fixed left-0 top-0 z-50 h-screen w-72 flex-col border-r transition-all duration-500 lg:flex ${
+        className={`fixed left-0 top-0 z-50 h-screen flex-col border-r transition-all duration-300 lg:flex ${
           isMenuOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0 ${
+          isSidebarCollapsed ? 'w-20' : 'w-72'
+        } ${
           isDarkMode 
             ? 'border-graphite/40 bg-void/80 backdrop-blur-2xl' 
             : 'border-graphite/20 bg-cream shadow-2xl shadow-ink/5'
         }`}
       >
       {/* Logo */}
-      <Link to="/" onClick={() => setMenuOpen(false)} className="flex h-24 items-center px-8 group/logo cursor-pointer transition-opacity hover:opacity-80">
+      <Link to="/" onClick={() => setMenuOpen(false)} className={`flex items-center px-6 group/logo cursor-pointer transition-opacity hover:opacity-80 ${isSidebarCollapsed ? 'h-16 justify-center' : 'h-24'}`}>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-volt shadow-glow-volt group-hover/logo:scale-110 transition-transform duration-500">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-volt shadow-glow-volt group-hover/logo:scale-110 transition-transform duration-500 shrink-0">
             <Zap size={22} className="text-white fill-current" />
           </div>
-          <div>
-            <h1 className={`font-serif text-lg font-bold leading-none ${isDarkMode ? 'text-silver' : 'text-ink'}`}>Lawxy</h1>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-volt">Reporter</p>
-          </div>
+          {!isSidebarCollapsed && (
+            <div>
+              <h1 className={`font-serif text-lg font-bold leading-none ${isDarkMode ? 'text-silver' : 'text-ink'}`}>Lawxy</h1>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-volt">Reporter</p>
+            </div>
+          )}
         </div>
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1.5 px-4 py-4">
+      <nav className={`flex-1 space-y-1.5 py-4 ${isSidebarCollapsed ? 'px-2' : 'px-4'}`}>
         {navItems.map((item) => {
           const active = location.pathname === item.path
           return (
@@ -72,7 +78,9 @@ export function Sidebar() {
               to={item.path}
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) => 
-                `group relative flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 ${
+                `group relative flex w-full items-center rounded-xl text-sm font-bold transition-all duration-300 ${
+                  isSidebarCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3'
+                } ${
                   isActive
                     ? 'bg-volt/10 text-volt shadow-[0_0_20px_rgba(255,222,66,0.1)]'
                     : isDarkMode 
@@ -80,6 +88,7 @@ export function Sidebar() {
                       : 'text-muted hover:bg-stellar/30 hover:text-ink'
                 }`
               }
+              title={isSidebarCollapsed ? item.label : undefined}
             >
               {active && (
                 <motion.div
@@ -90,12 +99,12 @@ export function Sidebar() {
               )}
               <item.icon
                 size={20}
-                className={`transition-colors duration-300 ${
+                className={`shrink-0 transition-colors duration-300 ${
                   active ? 'text-volt' : isDarkMode ? 'group-hover:text-silver' : 'group-hover:text-slate-900'
                 }`}
               />
-              <span>{item.label}</span>
-              {item.path === '/engagement' && status?.autoReplyEnabled && (
+              {!isSidebarCollapsed && <span>{item.label}</span>}
+              {!isSidebarCollapsed && item.path === '/engagement' && status?.autoReplyEnabled && (
                 <div className="ml-auto h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
               )}
             </NavLink>
@@ -103,34 +112,51 @@ export function Sidebar() {
         })}
       </nav>
 
+      {/* Collapse Toggle Button */}
+      <div className={`border-t p-4 ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`}>
+        <button
+          onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
+          className={`w-full flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold uppercase tracking-wider transition-all ${
+            isDarkMode 
+              ? 'border-graphite/40 text-dim hover:text-silver hover:bg-white/5' 
+              : 'border-graphite/20 text-muted hover:text-ink hover:bg-stellar/30'
+          }`}
+        >
+          {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {!isSidebarCollapsed && <span>Collapse</span>}
+        </button>
+      </div>
+
       {/* Footer / Status */}
-      <div className={`border-t p-6 transition-colors duration-500 ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`}>
-        <div className={`rounded-2xl border p-4 transition-all duration-500 ${
-          isDarkMode 
-            ? 'border-graphite/40 bg-stellar/50' 
-            : 'border-graphite/20 bg-stellar/30'
-        }`}>
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <div className="h-1.5 w-1.5 rounded-full bg-success" />
-                <div className="absolute inset-0 h-1.5 w-1.5 animate-ping rounded-full bg-success opacity-75" />
+      {!isSidebarCollapsed && (
+        <div className={`border-t p-6 transition-colors duration-500 ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`}>
+          <div className={`rounded-2xl border p-4 transition-all duration-500 ${
+            isDarkMode 
+              ? 'border-graphite/40 bg-stellar/50' 
+              : 'border-graphite/20 bg-stellar/30'
+          }`}>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <div className="h-1.5 w-1.5 rounded-full bg-success" />
+                  <div className="absolute inset-0 h-1.5 w-1.5 animate-ping rounded-full bg-success opacity-75" />
+                </div>
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-dim' : 'text-muted'}`}>System Sync</span>
               </div>
-              <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-dim' : 'text-muted'}`}>System Sync</span>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <p className={`text-[10px] font-bold ${isDarkMode ? 'text-dim' : 'text-muted'}`}>MODELS</p>
-              <p className={`font-black ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{status?.articles ?? 0}</p>
-            </div>
-            <div>
-              <p className={`text-[10px] font-bold ${isDarkMode ? 'text-dim' : 'text-muted'}`}>SYNTH</p>
-              <p className={`font-black ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{status?.drafts ?? 0}</p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <p className={`text-[10px] font-bold ${isDarkMode ? 'text-dim' : 'text-muted'}`}>MODELS</p>
+                <p className={`font-black ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{status?.articles ?? 0}</p>
+              </div>
+              <div>
+                <p className={`text-[10px] font-bold ${isDarkMode ? 'text-dim' : 'text-muted'}`}>SYNTH</p>
+                <p className={`font-black ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{status?.drafts ?? 0}</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
       </aside>
     </>
   )

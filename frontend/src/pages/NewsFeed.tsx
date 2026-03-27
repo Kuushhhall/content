@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
   ExternalLink, 
@@ -13,7 +13,9 @@ import {
   Maximize2,
   Calendar,
   Globe,
-  Trash2
+  Trash2,
+  ArrowUpDown,
+  Filter
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -66,6 +68,8 @@ export function NewsFeed() {
   const [search, setSearch] = useState('')
   const [modalArticle, setModalArticle] = useState<Article | null>(null)
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
+  const [sortBy, setSortBy] = useState<'date' | 'virality' | 'source'>('date')
+  const [filterSource, setFilterSource] = useState<string>('')
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ['articles'],
@@ -103,14 +107,35 @@ export function NewsFeed() {
     deleteMutation.mutate(articleId)
   }
 
-  const filtered = (articles?.items ?? []).filter(
-    (a) =>
-      !search ||
-      a.title.toLowerCase().includes(search.toLowerCase()) ||
-      a.source.toLowerCase().includes(search.toLowerCase()) ||
-      a.content_intelligence?.topic?.toLowerCase().includes(search.toLowerCase()) ||
-      a.content_intelligence?.legal_area?.toLowerCase().includes(search.toLowerCase()),
-  )
+  const filtered = useMemo(() => {
+    let items = (articles?.items ?? []).filter(
+      (a) =>
+        (!search ||
+          a.title.toLowerCase().includes(search.toLowerCase()) ||
+          a.source.toLowerCase().includes(search.toLowerCase()) ||
+          a.content_intelligence?.topic?.toLowerCase().includes(search.toLowerCase()) ||
+          a.content_intelligence?.legal_area?.toLowerCase().includes(search.toLowerCase())) &&
+        (!filterSource || a.source === filterSource)
+    )
+
+    // Sort items
+    items = [...items].sort((a, b) => {
+      if (sortBy === 'date') {
+        return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
+      } else if (sortBy === 'virality') {
+        return (b.content_intelligence?.virality_score || 0) - (a.content_intelligence?.virality_score || 0)
+      } else {
+        return a.source.localeCompare(b.source)
+      }
+    })
+
+    return items
+  }, [articles?.items, search, sortBy, filterSource])
+
+  const uniqueSources = useMemo(() => {
+    const sources = new Set((articles?.items ?? []).map(a => a.source))
+    return Array.from(sources).sort()
+  }, [articles?.items])
 
   const selectArticle = (article: Article) => {
     setSelectedArticleId(article.id)
@@ -120,29 +145,84 @@ export function NewsFeed() {
   return (
     <div className="space-y-8 animate-fade-in pb-12">
       {/* Search Header */}
-      <div className="flex flex-wrap items-center justify-between gap-6">
-        <div className="relative flex-1 min-w-[300px] max-w-xl group">
-          <Search size={20} className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors duration-300 ${isDarkMode ? 'text-dim/60 group-focus-within:text-volt' : 'text-slate-400 group-focus-within:text-teal-600'}`} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search Lawxy intelligence database..."
-            className="input-field h-14 pl-14 pr-6 text-base font-medium"
-          />
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="relative flex-1 min-w-[300px] max-w-xl group">
+            <Search size={20} className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors duration-300 ${isDarkMode ? 'text-dim/60 group-focus-within:text-volt' : 'text-slate-400 group-focus-within:text-teal-600'}`} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search News from the database..."
+              className="input-field h-14 pl-14 pr-6 text-base font-medium"
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSearchModalOpen(true)}
+              className={`h-14 px-8 gap-3 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all ${
+                isDarkMode 
+                  ? 'border-graphite/40 bg-stellar/20 text-silver hover:bg-white/5 hover:border-volt/30' 
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-teal-300 shadow-sm'
+              }`}
+            >
+              <Search size={16} />
+              <span>Search for Latest News</span>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsSearchModalOpen(true)}
-            className={`h-14 px-8 gap-3 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all ${
-              isDarkMode 
-                ? 'border-graphite/40 bg-stellar/20 text-silver hover:bg-white/5 hover:border-volt/30' 
-                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-teal-300 shadow-sm'
-            }`}
-          >
-            <Search size={18} />
-            <span>SEARCH NEWS</span>
-          </button>
+
+        {/* Filters and Sort */}
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-2">
+            <ArrowUpDown size={16} className={isDarkMode ? 'text-dim' : 'text-slate-400'} />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'date' | 'virality' | 'source')}
+              className={`h-10 px-4 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${
+                isDarkMode 
+                  ? 'bg-void/50 border-graphite/40 text-silver focus:border-volt' 
+                  : 'bg-white border-slate-200 text-slate-900 focus:border-teal-500'
+              }`}
+            >
+              <option value="date">Sort by Date</option>
+              <option value="virality">Sort by Virality</option>
+              <option value="source">Sort by Source</option>
+            </select>
+          </div>
+
+          {/* Source Filter Chips */}
+          <div className="flex items-center gap-2">
+            <Filter size={16} className={isDarkMode ? 'text-dim' : 'text-slate-400'} />
+            <button
+              onClick={() => setFilterSource('')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                !filterSource
+                  ? 'bg-volt text-ink'
+                  : isDarkMode
+                    ? 'bg-void/50 border border-graphite/40 text-dim hover:border-volt/30'
+                    : 'bg-slate-100 border border-slate-200 text-slate-600 hover:border-teal-300'
+              }`}
+            >
+              All
+            </button>
+            {uniqueSources.slice(0, 5).map((source) => (
+              <button
+                key={source}
+                onClick={() => setFilterSource(source)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  filterSource === source
+                    ? 'bg-volt text-ink'
+                    : isDarkMode
+                      ? 'bg-void/50 border border-graphite/40 text-dim hover:border-volt/30'
+                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:border-teal-300'
+                }`}
+              >
+                {source}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

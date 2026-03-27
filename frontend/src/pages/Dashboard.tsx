@@ -117,6 +117,7 @@ export function Dashboard() {
           icon={Newspaper}
           label="Articles"
           value={status?.articles ?? 0}
+          subtext="In database"
           onClick={() => navigate('/news')}
           color="volt"
         />
@@ -124,6 +125,7 @@ export function Dashboard() {
           icon={PenTool}
           label="Drafts"
           value={status?.drafts ?? 0}
+          subtext="Ready to publish"
           onClick={() => navigate('/studio')}
           color="amethyst"
         />
@@ -131,6 +133,7 @@ export function Dashboard() {
           icon={Clock}
           label="Scheduled"
           value={status?.pendingSchedules ?? 0}
+          subtext="Pending posts"
           onClick={() => navigate('/scheduler')}
           color="volt"
         />
@@ -138,6 +141,7 @@ export function Dashboard() {
           icon={Send}
           label="Published"
           value={status?.recentPublishes ?? 0}
+          subtext="This week"
           onClick={() => navigate('/analytics')}
           color="success"
         />
@@ -145,6 +149,7 @@ export function Dashboard() {
           icon={MessageCircle}
           label="Messages"
           value="Inbox"
+          subtext="Comments"
           onClick={() => navigate('/engagement')}
           color="amethyst"
         />
@@ -152,6 +157,7 @@ export function Dashboard() {
           icon={Bot}
           label="Auto Reply"
           value={status?.autoReplyEnabled ? 'On' : 'Off'}
+          subtext="AI responses"
           onClick={() => navigate('/engagement')}
           color={status?.autoReplyEnabled ? 'success' : 'dim'}
         />

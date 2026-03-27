@@ -47,10 +47,29 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(updates),
     }),
-  searchNews: (query: string, maxResults = 10, searchDepth = 'basic') =>
-    request<{ items: Article[]; total: number; upserted: number }>('/articles/search', {
+  searchNews: (
+    query: string, 
+    maxResults = 10, 
+    searchDepth = 'basic',
+    sources?: string[],
+    startDate?: string,
+    endDate?: string
+  ) =>
+    request<{ items: Article[]; total: number }>('/articles/search', {
       method: 'POST',
-      body: JSON.stringify({ query, max_results: maxResults, search_depth: searchDepth }),
+      body: JSON.stringify({ 
+        query, 
+        max_results: maxResults, 
+        search_depth: searchDepth,
+        sources,
+        start_date: startDate,
+        end_date: endDate
+      }),
+    }),
+  upsertSelected: (articles: Article[]) =>
+    request<{ upserted: number }>('/articles/upsert-selected', {
+      method: 'POST',
+      body: JSON.stringify({ articles }),
     }),
 
   // Drafts

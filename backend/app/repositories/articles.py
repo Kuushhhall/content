@@ -81,18 +81,37 @@ class ArticleRepository:
 
     async def upsert(self, article: ArticleDB) -> ArticleDB:
         """Insert or update article. O(log n) index update."""
-        existing = await self.get_by_id(article.id)
-        if existing:
-            # Update existing
-            for key, value in article.__dict__.items():
-                if not key.startswith("_"):
-                    setattr(existing, key, value)
-            await self.session.flush()
-            return existing
-        else:
-            self.session.add(article)
-            await self.session.flush()
-            return article
+        try:
+            existing = await self.get_by_id(article.id)
+            if existing:
+                # Update existing
+                for key, value in article.__dict__.items():
+                    if not key.startswith("_"):
+                        setattr(existing, key, value)
+                await self.session.flush()
+                return existing
+            else:
+                self.session.add(article)
+                await self.session.flush()
+                return article
+        except Exception as e:
+            # If we get a duplicate key error, try to update the existing record
+            if "duplicate key value violates unique constraint" in str(e):
+                # Try to get the existing record by URL
+                existing_by_url = await self.get_by_url(article.url)
+                if existing_by_url:
+                    # Update the existing record
+                    for key, value in article.__dict__.items():
+                        if not key.startswith("_"):
+                            setattr(existing_by_url, key, value)
+                    await self.session.flush()
+                    return existing_by_url
+                else:
+                    # If we can't find by URL, re-raise the original error
+                    raise e
+            else:
+                # Re-raise if it's not a duplicate key error
+                raise e
 
     async def delete(self, article_id: str) -> bool:
         """Delete article by ID with cascade delete of related records. O(log n) index update."""

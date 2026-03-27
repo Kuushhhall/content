@@ -6,16 +6,7 @@ from typing import Literal, Union
 from openai import OpenAI
 
 from app.core.config import Settings
-from app.llm.prompts import (
-    framer as framer_prompts,
-    linkedin as li_prompts,
-    medium as medium_prompts,
-    reddit as reddit_prompts,
-    instagram as insta_prompts,
-    system,
-    x_twitter as x_prompts,
-)
-from app.llm.prompts.base import build_summarize_prompt
+from app.llm.prompts import prompts, system_prompts
 from app.models.article import NormalizedArticle
 from app.models.draft import ContentDraft
 from app.state.store import StateStore
@@ -45,46 +36,11 @@ def _complete(settings: Settings, system_msg: str, user: str) -> str:
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user},
         ],
-        temperature=0.4,
+        temperature=0.3,
     )
     return (resp.choices[0].message.content or "").strip()
 
 
-async def summarize_article(
-    session_or_store: Union[object, StateStore], settings: Settings, article: NormalizedArticle
-) -> str:
-    """Summarize an article, using PostgreSQL if available, otherwise StateStore."""
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from app.repositories.articles import ArticleRepository
-    
-    use_db = isinstance(session_or_store, AsyncSession)
-    
-    if use_db:
-        repo = ArticleRepository(session_or_store)
-        # Try to get cached summary from PostgreSQL
-        cached = await repo.get_summary(article.id)
-        if cached:
-            return cached
-    else:
-        store = session_or_store
-        # Try to get cached summary from StateStore
-        cached = store.get_article_summary(article.id)
-        if cached:
-            return cached
-    
-    # Generate new summary
-    system_msg = system.EDITOR_SYSTEM_PROMPT
-    user = build_summarize_prompt(article)
-    summary = _complete(settings, system_msg, user)
-    
-    # Save summary
-    if use_db:
-        await repo.set_summary(article.id, summary)
-        await session_or_store.commit()
-    else:
-        store.set_article_summary(article.id, summary)
-    
-    return summary
 
 
 async def generate_draft(
@@ -94,54 +50,34 @@ async def generate_draft(
     platform: Platform,
     draft_id: str | None = None,
 ) -> ContentDraft:
-    """Generate a draft for a platform, using PostgreSQL if available."""
+    """Generate a draft for a platform using direct article content and individual platform prompts."""
     from sqlalchemy.ext.asyncio import AsyncSession
     from app.repositories.drafts import DraftRepository
     from app.models.db_models import DraftDB
     from datetime import UTC, datetime
     
-    summary = await summarize_article(session_or_store, settings, article)
-    system_msg = system.GENERATOR_SYSTEM_PROMPT
+    system_msg = system_prompts.GENERATOR_SYSTEM_PROMPT
     
     use_db = isinstance(session_or_store, AsyncSession)
     
+    # Use individual platform prompts with full article content
     if platform == "linkedin":
-        body = _complete(settings, system_msg, li_prompts.build_linkedin_prompt(article, summary))
-        body = li_prompts.post_process_linkedin(body)
+        body = _complete(settings, system_msg, prompts.build_linkedin_prompt(article, article.full_content or article.summary_hint or ""))
     elif platform == "x":
-        framer_url = ""
-        # Try to find a framer draft to link to
-        if use_db:
-            draft_repo = DraftRepository(session_or_store)
-            drafts, _ = await draft_repo.list_drafts(article_id=article.id)
-            framer_draft = next((d for d in drafts if d.platform == "framer"), None)
-        else:
-            drafts = session_or_store.list_drafts(article.id)
-            framer_draft = next((d for d in drafts if d.platform == "framer"), None)
-        
-        if framer_draft:
-            try:
-                data = json.loads(framer_draft.body)
-                slug = data.get("slug_slug", "")
-                if slug:
-                    framer_url = f"{settings.framer_base_url}/{slug}"
-            except:
-                pass
-        
-        raw = _complete(settings, system_msg, x_prompts.build_x_prompt(article, summary, framer_url))
-        parts = x_prompts.split_x_thread(raw)
+        body = _complete(settings, system_msg, prompts.build_x_prompt(article, article.full_content or article.summary_hint or ""))
+        parts = prompts.split_x_thread(body)
         body = "\n---\n".join(parts)
     elif platform == "reddit":
-        raw = _complete(settings, system_msg, reddit_prompts.build_reddit_prompt(article, summary))
-        title, text = reddit_prompts.parse_reddit_title_body(raw)
+        body = _complete(settings, system_msg, prompts.build_reddit_prompt(article, article.full_content or article.summary_hint or ""))
+        title, text = prompts.parse_reddit_title_body(body)
         body = f"{title}\n\n{text}"
     elif platform == "framer":
-        raw = _complete(settings, system_msg, framer_prompts.build_framer_prompt(article, summary))
-        body = _extract_json_block(raw)
+        body = _complete(settings, system_msg, prompts.build_framer_prompt(article, article.full_content or article.summary_hint or ""))
+        body = _extract_json_block(body)
     elif platform == "instagram":
-        body = _complete(settings, system_msg, insta_prompts.build_instagram_prompt(article, summary))
+        body = _complete(settings, system_msg, prompts.build_instagram_prompt(article, article.full_content or article.summary_hint or ""))
     elif platform == "medium":
-        body = _complete(settings, system_msg, medium_prompts.build_medium_prompt(article, summary))
+        body = _complete(settings, system_msg, prompts.build_medium_prompt(article, article.full_content or article.summary_hint or ""))
     else:
         raise ValueError(f"Unknown platform {platform}")
 
@@ -151,7 +87,7 @@ async def generate_draft(
         article_id=article.id,
         platform=platform,
         body=body,
-        summary=summary,
+        summary=article.full_content or article.summary_hint or article.title,
         updated_at=datetime.now(UTC),
     )
     
@@ -189,37 +125,14 @@ def _extract_json_block(text: str) -> str:
 
 def get_combined_prompt(platform: Platform, article: NormalizedArticle, **kwargs) -> str:
     """Get the combined prompt for a platform that generates both summary and draft."""
-    if platform == "linkedin":
-        return li_prompts.build_linkedin_combined_prompt(article)
-    elif platform == "x":
-        framer_url = kwargs.get("framer_url", "")
-        return x_prompts.build_x_combined_prompt(article, framer_url)
-    elif platform == "reddit":
-        return reddit_prompts.build_reddit_combined_prompt(article)
-    elif platform == "framer":
-        return framer_prompts.build_framer_combined_prompt(article)
-    elif platform == "instagram":
-        return insta_prompts.build_instagram_combined_prompt(article)
-    elif platform == "medium":
-        return medium_prompts.build_medium_combined_prompt(article)
-    else:
-        raise ValueError(f"Unknown platform {platform}")
+    # Use LinkedIn prompt for all platforms
+    return prompts.build_linkedin_prompt(article, "")
 
 
 def post_process(platform: Platform, body: str) -> str:
     """Apply platform-specific post-processing to the draft body."""
-    if platform == "linkedin":
-        return li_prompts.post_process_linkedin(body)
-    elif platform == "x":
-        parts = x_prompts.split_x_thread(body)
-        return "\n---\n".join(parts)
-    elif platform == "reddit":
-        title, text = reddit_prompts.parse_reddit_title_body(body)
-        return f"{title}\n\n{text}"
-    elif platform == "framer":
-        return _extract_json_block(body)
-    else:
-        return body
+    # Use LinkedIn post-processing for all platforms
+    return prompts.post_process_linkedin(body)
 
 
 async def generate_draft_single_call(
@@ -247,7 +160,7 @@ async def generate_draft_single_call(
     prompt = get_combined_prompt(platform, article)
     
     # Single LLM call
-    response = _complete(settings, system.GENERATOR_SYSTEM_PROMPT, prompt)
+    response = _complete(settings, system_prompts.GENERATOR_SYSTEM_PROMPT, prompt)
     
     # Parse JSON response
     try:

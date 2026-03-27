@@ -5,8 +5,8 @@ import logging
 
 from app.models.article import NormalizedArticle, ContentIntelligence
 from app.llm.service import LLMService
-from app.llm.prompts.intelligence import build_structured_summary_prompt, build_metadata_intelligence_prompt
-from app.llm.prompts.system import EDITOR_SYSTEM_PROMPT, INTELLIGENCE_SYSTEM_PROMPT
+from app.llm.prompts.prompts import build_structured_summary_prompt, build_metadata_intelligence_prompt
+from app.llm.prompts.system_prompts import EDITOR_SYSTEM_PROMPT, INTELLIGENCE_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 

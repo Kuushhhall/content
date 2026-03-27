@@ -11,6 +11,13 @@ class SearchNewsIn(BaseModel):
     query: str
     max_results: int = 10
     search_depth: str = "basic"
+    sources: list[str] | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class UpsertSelectedIn(BaseModel):
+    articles: list[dict]
 
 
 router = APIRouter(prefix="/articles", tags=["articles"])
@@ -152,23 +159,137 @@ async def search_news(
     settings: SettingsDep,
     db: DBSessionDep,
 ) -> dict:
-    """Search for news using Tavily API with custom query."""
+    """Search for news using Tavily API with custom query. Returns results without upserting."""
     # Use Tavily to search for news
-    articles = tavily_client.search_scc_legal_news(settings, query=body.query)
+    articles = tavily_client.search_scc_legal_news(
+        settings, 
+        query=body.query,
+        search_depth=body.search_depth,
+        max_results=body.max_results
+    )
+    
+    # Filter by sources if provided
+    if body.sources:
+        articles = [a for a in articles if a.source in body.sources]
+    
+    # Filter by date range if provided
+    if body.start_date:
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(body.start_date.replace('Z', '+00:00'))
+        articles = [a for a in articles if a.published_at and a.published_at >= start_dt]
+    
+    if body.end_date:
+        from datetime import datetime
+        end_dt = datetime.fromisoformat(body.end_date.replace('Z', '+00:00'))
+        articles = [a for a in articles if a.published_at and a.published_at <= end_dt]
     
     # Limit results
     articles = articles[:body.max_results]
     
-    # Upsert articles to store
-    upserted = 0
-    for article in articles:
-        existing = store.get_article(article.id)
-        if not existing:
-            store.upsert_article(article)
-            upserted += 1
-    
     return {
         "items": [ArticleOut.model_validate(a.model_dump()) for a in articles],
         "total": len(articles),
-        "upserted": upserted,
     }
+
+
+@router.post("/upsert-selected", response_model=dict)
+async def upsert_selected_articles(
+    body: UpsertSelectedIn,
+    store: StoreDep,
+    db: DBSessionDep,
+) -> dict:
+    """Upsert selected articles to database."""
+    from app.models.article import NormalizedArticle
+    from app.models.content_intelligence import ContentIntelligence
+    
+    upserted = 0
+    for article_data in body.articles:
+        # Convert dict to NormalizedArticle
+        ci_data = article_data.get("content_intelligence", {})
+        ci = ContentIntelligence(
+            topic=ci_data.get("topic", ""),
+            legal_area=ci_data.get("legal_area", ""),
+            audience=ci_data.get("audience", []),
+            angle=ci_data.get("angle", ""),
+            complexity_level=ci_data.get("complexity_level", "intermediate"),
+            virality_score=ci_data.get("virality_score", 0.0),
+            relevance_score=ci_data.get("relevance_score", 0.0),
+            key_insights=ci_data.get("key_insights", []),
+            affected_parties=ci_data.get("affected_parties", []),
+            legal_implications=ci_data.get("legal_implications", []),
+            suggested_hashtags=ci_data.get("suggested_hashtags", []),
+        )
+        
+        article = NormalizedArticle(
+            id=article_data["id"],
+            source=article_data["source"],
+            title=article_data["title"],
+            url=article_data["url"],
+            summary_hint=article_data.get("summary_hint", ""),
+            published_at=article_data.get("published_at"),
+            fetched_at=article_data.get("fetched_at"),
+            raw_excerpt=article_data.get("raw_excerpt"),
+            kind=article_data.get("kind", "manual"),
+            full_content=article_data.get("full_content", ""),
+            structured_summary=article_data.get("structured_summary", ""),
+            extracted_facts=article_data.get("extracted_facts", []),
+            court_name=article_data.get("court_name", ""),
+            case_number=article_data.get("case_number", ""),
+            judges_involved=article_data.get("judges_involved", []),
+            parties=article_data.get("parties", []),
+            jurisdiction=article_data.get("jurisdiction", ""),
+            precedent_value=article_data.get("precedent_value", "medium"),
+            content_intelligence=ci,
+        )
+        
+        if db:
+            # Use database
+            from app.repositories.articles import ArticleRepository
+            from app.models.db_models import ArticleDB
+            
+            repo = ArticleRepository(db)
+            existing = await repo.get_by_id(article.id)
+            
+            if existing is None:
+                # Convert to DB model and insert
+                db_article = ArticleDB(
+                    id=article.id,
+                    source=article.source,
+                    title=article.title,
+                    url=article.url,
+                    summary_hint=article.summary_hint,
+                    published_at=article.published_at,
+                    fetched_at=article.fetched_at,
+                    raw_excerpt=article.raw_excerpt,
+                    kind=article.kind,
+                    full_content=article.full_content,
+                    structured_summary=article.structured_summary,
+                    extracted_facts=article.extracted_facts,
+                    court_name=article.court_name,
+                    case_number=article.case_number,
+                    judges_involved=article.judges_involved,
+                    parties=article.parties,
+                    jurisdiction=article.jurisdiction,
+                    precedent_value=article.precedent_value,
+                    ci_topic=article.content_intelligence.topic,
+                    ci_legal_area=article.content_intelligence.legal_area,
+                    ci_audience=article.content_intelligence.audience,
+                    ci_angle=article.content_intelligence.angle,
+                    ci_complexity_level=article.content_intelligence.complexity_level,
+                    ci_virality_score=article.content_intelligence.virality_score,
+                    ci_relevance_score=article.content_intelligence.relevance_score,
+                    ci_key_insights=article.content_intelligence.key_insights,
+                    ci_affected_parties=article.content_intelligence.affected_parties,
+                    ci_legal_implications=article.content_intelligence.legal_implications,
+                    ci_suggested_hashtags=article.content_intelligence.suggested_hashtags,
+                )
+                await repo.upsert(db_article)
+                upserted += 1
+        else:
+            # Use in-memory store
+            existing = store.get_article(article.id)
+            if existing is None:
+                store.upsert_article(article)
+                upserted += 1
+    
+    return {"upserted": upserted}
