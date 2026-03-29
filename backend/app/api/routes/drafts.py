@@ -71,7 +71,6 @@ async def get_draft(draft_id: str, store: StoreDep) -> DraftOut:
     if not d:
         raise HTTPException(status_code=404, detail="Draft not found")
     return DraftOut.model_validate(d.model_dump())
-        return DraftOut.model_validate(d.model_dump())
 
 
 @router.patch("/{draft_id}", response_model=DraftOut)

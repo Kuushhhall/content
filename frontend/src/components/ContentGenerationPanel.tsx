@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Linkedin, Code, Twitter, Sparkles, Edit, Copy, RefreshCw } from 'lucide-react';
+import { Code, Sparkles, Edit, Copy, RefreshCw } from 'lucide-react';
 import { Card } from './Card';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { api } from '../lib/api';
 import type { Article, Draft, Platform } from '../types';
+import { PlatformIcon } from './PlatformIcon';
 
 interface ContentGenerationPanelProps {
   selectedArticle?: Article;
@@ -19,7 +20,7 @@ const PLATFORMS: { id: PlatformType; name: string; icon: React.ReactNode; descri
   {
     id: 'linkedin',
     name: 'LinkedIn',
-    icon: <Linkedin className="h-5 w-5" />,
+    icon: <PlatformIcon platform="linkedin" size={20} />,
     description: 'Professional posts for profile or company pages',
   },
   {
@@ -31,7 +32,7 @@ const PLATFORMS: { id: PlatformType; name: string; icon: React.ReactNode; descri
   {
     id: 'x',
     name: 'X/Twitter',
-    icon: <Twitter className="h-5 w-5" />,
+    icon: <PlatformIcon platform="x" size={20} />,
     description: 'Threads with character limits',
   },
 ];

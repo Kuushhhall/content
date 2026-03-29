@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,7 +7,6 @@ from app.api.routes import api_router
 from app.api.ws import register_ws_routes
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.scheduler.jobs import build_scheduler
 from app.state.store import StateStore
 
 
@@ -22,16 +20,9 @@ async def lifespan(app: FastAPI):
     app.state.store = store
     app.state.settings = settings
 
-    def get_store() -> StateStore:
-        return app.state.store
-
-    scheduler: AsyncIOScheduler = build_scheduler(settings, get_store)
-    scheduler.start()
-    app.state.scheduler = scheduler
     yield
 
-    # Cleanup
-    scheduler.shutdown(wait=False)
+    # Cleanup - no scheduler to shutdown
 
 
 def create_app() -> FastAPI:

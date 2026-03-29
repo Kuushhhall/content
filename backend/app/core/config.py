@@ -32,9 +32,9 @@ class Settings(BaseSettings):
     rss_supreme_court: str = "https://main.sci.gov.in/rss/latest-feed"
     rss_high_courts: str = "https://www.indiankanoon.org/rss/"
 
-    # Scheduler
-    ingest_cron_minutes: int = 30
-    publish_scan_interval_seconds: int = 60
+    # Scheduler - DISABLED
+    # ingest_cron_minutes: int = 30
+    # publish_scan_interval_seconds: int = 60
 
     # Publishers — LinkedIn (OAuth2 three-legged in production; token when pre-authorized)
     linkedin_access_token: str | None = None
