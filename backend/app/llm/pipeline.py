@@ -27,8 +27,8 @@ def _client(settings: Settings) -> OpenAI:
 
 def _complete(settings: Settings, system_msg: str, user: str) -> str:
     if not settings.openai_api_key:
-        log.warning("No OPENAI_API_KEY — returning stub LLM output")
-        return user[:500] + "\n\n[stub: set OPENAI_API_KEY for real output]"
+        log.error("OPENAI_API_KEY not configured. Please set OPENAI_API_KEY in your .env file")
+        raise ValueError("OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file to generate real content")
     client = _client(settings)
     resp = client.chat.completions.create(
         model=settings.llm_model,
@@ -49,20 +49,20 @@ async def generate_draft(
     article: NormalizedArticle,
     platform: Platform,
     draft_id: str | None = None,
+    linkedin_target: str = "profile",
 ) -> ContentDraft:
     """Generate a draft for a platform using direct article content and individual platform prompts."""
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from app.repositories.drafts import DraftRepository
-    from app.models.db_models import DraftDB
     from datetime import UTC, datetime
-    
+
     system_msg = system_prompts.GENERATOR_SYSTEM_PROMPT
-    
-    use_db = isinstance(session_or_store, AsyncSession)
     
     # Use individual platform prompts with full article content
     if platform == "linkedin":
-        body = _complete(settings, system_msg, prompts.build_linkedin_prompt(article, article.full_content or article.summary_hint or ""))
+        body = _complete(settings, system_msg, prompts.build_linkedin_prompt(
+            article,
+            article.full_content or article.summary_hint or "",
+            target=linkedin_target
+        ))
     elif platform == "x":
         body = _complete(settings, system_msg, prompts.build_x_prompt(article, article.full_content or article.summary_hint or ""))
         parts = prompts.split_x_thread(body)
@@ -81,7 +81,7 @@ async def generate_draft(
     else:
         raise ValueError(f"Unknown platform {platform}")
 
-    did = draft_id or (session_or_store.new_id("d_") if not use_db else f"d_{article.id}_{platform}_{datetime.now(UTC).timestamp()}")
+    did = draft_id or session_or_store.new_id("d_")
     draft = ContentDraft(
         id=did,
         article_id=article.id,
@@ -90,23 +90,10 @@ async def generate_draft(
         summary=article.full_content or article.summary_hint or article.title,
         updated_at=datetime.now(UTC),
     )
-    
-    if use_db:
-        # Save to PostgreSQL
-        db_draft = DraftDB(
-            id=draft.id,
-            article_id=draft.article_id,
-            platform=draft.platform,
-            body=draft.body,
-            summary=draft.summary,
-        )
-        draft_repo = DraftRepository(session_or_store)
-        await draft_repo.upsert(db_draft)
-        await session_or_store.commit()
-    else:
-        # Save to StateStore
-        session_or_store.upsert_draft(draft)
-    
+
+    # Save to StateStore
+    session_or_store.upsert_draft(draft)
+
     return draft
 
 
@@ -149,12 +136,7 @@ async def generate_draft_single_call(
     - 50% faster generation
     - 50% lower API costs
     """
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from app.repositories.drafts import DraftRepository
-    from app.models.db_models import DraftDB
     from datetime import UTC, datetime
-    
-    use_db = isinstance(session_or_store, AsyncSession)
     
     # Get combined prompt for platform
     prompt = get_combined_prompt(platform, article)
@@ -179,7 +161,7 @@ async def generate_draft_single_call(
     body = post_process(platform, body)
     
     # Generate draft ID
-    did = draft_id or (session_or_store.new_id("d_") if not use_db else f"d_{article.id}_{platform}_{datetime.now(UTC).timestamp()}")
+    did = draft_id or session_or_store.new_id("d_")
     
     # Create draft object
     draft = ContentDraft(
@@ -192,19 +174,7 @@ async def generate_draft_single_call(
     )
     
     # Save draft
-    if use_db:
-        db_draft = DraftDB(
-            id=draft.id,
-            article_id=draft.article_id,
-            platform=draft.platform,
-            body=draft.body,
-            summary=draft.summary,
-        )
-        draft_repo = DraftRepository(session_or_store)
-        await draft_repo.upsert(db_draft)
-        await session_or_store.commit()
-    else:
-        session_or_store.upsert_draft(draft)
+    session_or_store.upsert_draft(draft)
     
     log.info("Generated draft for %s using single LLM call (id=%s)", platform, did)
     return draft

@@ -11,12 +11,14 @@ import { ContentStudio } from './pages/ContentStudio'
 import { PostScheduler } from './pages/PostScheduler'
 import { EngagementHub } from './pages/EngagementHub'
 import { Analytics } from './pages/Analytics'
+import { NewsSearchPage } from './pages/NewsSearchPage'
+import { ContentGenerationPage } from './pages/ContentGenerationPage'
 import { useUIStore } from './store/uiStore'
 
 const pageVariants = {
-  initial: { opacity: 0, scale: 0.98, filter: 'blur(10px)' },
-  animate: { opacity: 1, scale: 1, filter: 'blur(0px)' },
-  exit: { opacity: 0, scale: 1.02, filter: 'blur(20px)' },
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
 }
 
 function App() {
@@ -35,24 +37,21 @@ function App() {
   }, [isDarkMode])
 
   return (
-    <div className={`flex h-screen w-full selection:bg-volt/30 selection:text-current overflow-hidden transition-colors duration-700 ${isDarkMode ? 'bg-void' : 'bg-cream'}`}>
+    <div className={`flex h-screen w-full overflow-hidden ${isDarkMode ? 'dark' : 'light'}`}>
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 3500,
-          className: 'premium-toast',
           style: {
-            background: isDarkMode ? 'rgba(27, 12, 12, 0.9)' : 'rgba(255, 248, 231, 0.95)',
-            color: isDarkMode ? '#FFF8E7' : '#1B0C0C',
-            border: isDarkMode ? '1px solid rgba(255, 222, 66, 0.2)' : '1px solid rgba(76, 92, 45, 0.2)',
-            borderRadius: '24px',
+            background: isDarkMode ? 'rgba(var(--bg-secondary-rgb), 0.95)' : 'rgba(var(--bg-secondary-rgb), 0.95)',
+            color: isDarkMode ? 'rgba(var(--text-primary-rgb), 1)' : 'rgba(var(--text-primary-rgb), 1)',
+            border: isDarkMode ? '1px solid rgba(var(--border-primary-rgb), 0.3)' : '1px solid rgba(var(--border-primary-rgb), 0.3)',
+            borderRadius: '0.5rem',
             fontSize: '13px',
-            fontWeight: '700',
-            padding: '16px 24px',
-            backdropFilter: 'blur(20px)',
-            boxShadow: isDarkMode ? '0 12px 64px rgba(27, 12, 12, 0.6)' : '0 12px 64px rgba(27, 12, 12, 0.1)',
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase',
+            fontWeight: '500',
+            padding: '12px 16px',
+            backdropFilter: 'blur(10px)',
+            boxShadow: 'var(--shadow-md)',
           },
         }}
       />
@@ -60,12 +59,7 @@ function App() {
       {/* Conditionally render Side & Top bars */}
       {!isLanding && <Sidebar />}
 
-      <main className={`relative flex flex-1 flex-col overflow-hidden ${!isLanding ? 'lg:pl-72' : ''}`}>
-        {/* Background Aura Decorations */}
-        <div className="pointer-events-none absolute -left-40 -top-40 z-0 h-[800px] w-[800px] animate-blob rounded-full bg-volt/10 blur-[160px] opacity-40 transition-colors duration-500" />
-        <div className="pointer-events-none absolute -bottom-60 -right-60 z-0 h-[1000px] w-[1000px] animate-blob rounded-full bg-amethyst/10 blur-[200px] opacity-30 animation-delay-2000 transition-colors duration-500" />
-        <div className="pointer-events-none absolute left-1/4 top-1/2 z-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 animate-blob rounded-full bg-success/10 blur-[140px] opacity-20 animation-delay-4000 transition-colors duration-500" />
-
+      <main className={`flex flex-1 flex-col overflow-hidden ${!isLanding ? 'lg:pl-72' : ''}`}>
         {!isLanding && <TopBar />}
 
         <div className={`relative z-10 flex-1 overflow-y-auto overflow-x-hidden ${!isLanding ? 'p-8 md:p-12' : ''} scrollbar-thin`}>
@@ -76,7 +70,7 @@ function App() {
               initial="initial"
               animate="animate"
               exit="exit"
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.2 }}
               className={!isLanding ? "mx-auto max-w-[1400px]" : "h-full w-full"}
             >
               <Routes location={location}>
@@ -87,6 +81,8 @@ function App() {
                 <Route path="/scheduler" element={<PostScheduler />} />
                 <Route path="/engagement" element={<EngagementHub />} />
                 <Route path="/analytics" element={<Analytics />} />
+                <Route path="/news-search" element={<NewsSearchPage />} />
+                <Route path="/content-generation" element={<ContentGenerationPage />} />
               </Routes>
             </motion.div>
           </AnimatePresence>

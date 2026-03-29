@@ -43,6 +43,10 @@ class DraftGenerateIn(BaseModel):
     article_id: str
     platform: Literal["linkedin", "x", "reddit", "framer", "medium", "instagram"]
     draft_id: str | None = None
+    linkedin_target: Literal["profile", "company"] | None = Field(
+        default=None,
+        description="For LinkedIn: 'profile' for personal profile, 'company' for company page"
+    )
 
 
 class DraftOut(BaseModel):

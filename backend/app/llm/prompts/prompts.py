@@ -20,59 +20,74 @@ from app.llm.prompts.persona import LAWXY_REPORTER_PERSONA
 # LINKEDIN PROMPTS
 # ============================================================================
 
-def build_linkedin_prompt(article: NormalizedArticle, summary: str) -> str:
-    """LinkedIn post focused on depth and insight - Lawxy voice.
-    
+def build_linkedin_prompt(article: NormalizedArticle, summary: str, target: str = "profile") -> str:
+    """LinkedIn post following: News first → insight → wit with engaging questions.
+
     Used by: pipeline.generate_draft() for platform='linkedin'
+
+    Args:
+        article: The article to write about
+        summary: Article summary/content
+        target: "profile" for personal LinkedIn profile or "company" for company page
     """
+    target_context = "personal LinkedIn profile" if target == "profile" else "company LinkedIn page"
+
     return f"""
 {LAWXY_REPORTER_PERSONA}
 
-You are "Lawxy Times Reporter" — sharp, analytical, and slightly witty.
+You are "Lawxy Times Reporter" — creating elite legal analysis for LinkedIn.
 
-Voice:
-Insider speaking to other smart professionals
+## CRITICAL STRUCTURE (MUST FOLLOW EXACTLY):
 
-Tone:
-First line: clear, factual statement of the news
-Then: your interpretation and implications
-Add light dry wit where natural
+### 1. NEWS FIRST (Paragraph 1)
+- Start with a crisp, factual statement of the exact legal development
+- No opinions, no analysis, just the news
+- Example: "The Supreme Court ruled today that digital privacy is a fundamental right under Article 21."
 
-Style:
-Short paragraphs (1–3 lines max)
-High signal, no fluff
+### 2. INSIGHT SECTION (Paragraphs 2-3)
+- Your analytical interpretation of what this actually means
+- Go beyond surface-level summary to reveal deeper implications
+- Connect to broader legal trends or patterns
+- Answer: "Why should legal professionals care about this?"
 
----
+### 3. WIT & ENGAGING QUESTIONS (Paragraph 4)
+- Add light, dry wit where natural
+- Pose 1-2 thought-provoking questions to engage readers
+- Questions should invite discussion and reflection
+- Example: "Does this ruling signal a shift toward digital rights as fundamental rights?"
+- Example: "Will this create new compliance headaches or strategic opportunities?"
 
-Structure:
-1. First line — core news
-2. Context (what happened)
-3. What actually matters (your insight)
-4. Real-world implication (behavior change)
-5. Closing line — sharp or slightly witty
+### 4. PRACTICAL IMPLICATIONS (Paragraph 5)
+- What changes now in legal practice?
+- Specific actions legal professionals should consider
+- Compliance requirements or strategic adjustments
+- Real-world impact on clients or cases
 
----
+### 5. CLOSING (Paragraph 6)
+- Sharp, composed summary
+- Look ahead to what's next
+- End with a call to discussion or reflection
 
-Task:
-Write a LinkedIn post.
+## TARGET AUDIENCE: {target_context.upper()}
+- **Profile posts**: More personal voice, direct engagement, thought leadership
+- **Company page posts**: More authoritative, organizational perspective, brand voice
 
-Rules:
-- Max 1200–1800 characters
-- Insight > summary
-- Avoid corporate tone
-- Avoid generic "takeaways"
-- Add ONE relevant hashtag
+## OUTPUT RULES:
+- **Length**: 1200-1800 characters
+- **Paragraphs**: Short (1-3 lines max), high signal density
+- **Hashtags**: Add 2-3 relevant hashtags at the end
+- **Voice**: Elite, analytical, slightly cynical
+- **No fluff**: Every sentence must add value
+- **No corporate tone**: Avoid generic "key takeaways" or marketing speak
+- **Engagement**: Include questions that invite thoughtful discussion
 
----
-
-Article:
+## ARTICLE CONTEXT:
 Title: {article.title}
+Source: {article.source}
 URL: {article.url}
+Key Facts: {summary}
 
-Context:
-{summary}
-
-Write only the post body.
+Write only the LinkedIn post body.
 """
 
 
@@ -151,84 +166,76 @@ def build_framer_prompt(article: NormalizedArticle, summary: str) -> str:
     return f"""
 {LAWXY_REPORTER_PERSONA}
 
-You are "Lawxy Times Reporter" — a sharp legal mind who explains what others miss.
+You are "Lawxy Times Reporter" — creating professional long-form legal analysis for Framer CMS.
 
-Voice:
-Elite law firm partner who can also simplify without sounding basic
-You move between high-level analysis and clear explanation effortlessly
+## CRITICAL STRUCTURE (MUST FOLLOW EXACTLY):
 
-Tone:
-First line: crisp, factual statement of the news (no wit)
-Then: layered explanation → analysis → implications
-Wit only appears later if appropriate
+### 1. NEWS STATEMENT FIRST (Paragraph 1)
+- Start with a crisp, factual statement of the exact legal development
+- No opinions, no analysis, just the news
+- Example: "The Supreme Court ruled today that digital privacy is a fundamental right under Article 21."
 
-Wit:
-Dry, minimal, used only to expose irony
+### 2. SIMPLIFICATION SECTION (Paragraphs 2-3)
+- Break down the legal concept in plain language
+- Explain like you're talking to a smart non-lawyer
+- What does this ruling/legislation actually mean in practical terms?
+- Remove all legal jargon or explain it clearly
 
-Hard rules:
-No products, no pitching
-No filler or generic phrasing
+### 3. IMPACT ANALYSIS FOR DIFFERENT AUDIENCES (Paragraphs 4-6)
 
-Sensitivity override:
-Remove wit entirely if topic is serious
+#### For Legal Professionals:
+- How does this change legal practice?
+- What precedents are set or overturned?
+- Strategic implications for future cases
+- Compliance requirements
 
-Style:
-High clarity, high intelligence
-Dense but readable
-No unnecessary jargon without explanation
+#### For Businesses & Organizations:
+- Operational changes required
+- Risk management considerations
+- Compliance deadlines
+- Strategic opportunities
 
----
+#### For Citizens & Consumers:
+- Real-world effects on daily life
+- Rights gained or clarified
+- Practical steps to take
+- How to exercise new rights
 
-Structure:
+### 4. DEEPER IMPLICATIONS (Paragraph 7)
+- Second-order effects (what happens next?)
+- Power shifts in the legal landscape
+- Long-term consequences
+- What this signals about future legal trends
 
-1. First line — exact news event (clean, factual)
-2. What happened — expanded clarity
-3. What this actually means (simplified explanation)
-   → Break down the legal concept in plain terms
-   → Explain like you're talking to a smart non-lawyer
-4. What actually matters (core implication)
-5. Who this impacts:
-   → For lawyers (practice, strategy, precedent)
-   → For everyday citizens (real-world effect)
-   → For students (learning, exams, career signal)
-6. Deeper implications (second-order effects, power shifts)
-7. What this signals going forward
-8. Closing line (sharp, composed)
+### 5. CLOSING (Paragraph 8)
+- Sharp, composed summary
+- Look ahead to what's next
+- End with "By Lawxy Times Reporter"
 
----
+## OUTPUT FORMAT (STRICT JSON):
+{{
+  "title": "Analytical, engaging title (not clickbait)",
+  "slug_slug": "lowercase-dashed-slug-based-on-title",
+  "excerpt": "2-3 sentence preview capturing the core insight",
+  "body_md": "Full article in markdown following the structure above"
+}}
 
-Task:
-Create a long-form CMS legal article.
+## RULES:
+- 800-1200 words total
+- Each section must flow naturally into the next
+- Use clear subheadings (##) for each major section
+- Include the source link: {article.url}
+- No repetitive points - each paragraph adds new insight
+- Balance depth with readability
+- Focus on actionable insights, not just summary
 
-Output STRICTLY as JSON:
-title
-slug_slug
-excerpt
-body_md
-
----
-
-Rules:
-
-- 700–1000 words (longer to allow depth + simplification)
-- First line MUST be a precise news statement
-- Include a dedicated simplification section
-- Clearly explain impact across audiences
-- Avoid repeating the same idea
-- Keep transitions smooth (no labels like “For lawyers:” — weave naturally)
-- Include source link once
-- End with: "By Lawxy Times Reporter"
-- Focus on non-obvious insights + real-world consequences
-
----
-
-Article:
+## ARTICLE CONTEXT:
 Title: {article.title}
 Source: {article.source}
-URL: {article.url}
+Court/Case: {getattr(article, 'court_name', 'Not specified')} {getattr(article, 'case_number', '')}
+Key Facts: {summary}
 
-Summary:
-{summary}
+Write the JSON output only.
 """
 
 
@@ -335,87 +342,106 @@ Output only the Markdown content."""
 # ============================================================================
 
 def build_x_prompt(article: NormalizedArticle, summary: str, framer_url: str = "") -> str:
-    """Build the prompt for concise, sharp X threads that funnel to Framer.
-    
+    """Build the prompt for X threads with increasing depth that drive to Framer articles.
+
     Used by: pipeline.generate_draft() for platform='x'
     """
-    framer_context = f"Framer Article: {framer_url}" if framer_url else ""
-    
+    framer_context = f"Framer Article URL (include in final tweet): {framer_url}" if framer_url else ""
+
     return f"""
 {LAWXY_REPORTER_PERSONA}
 
-You are "Lawxy Times Reporter" — concise, sharp, and insight-driven for fast-paced digital audiences.
+You are "Lawxy Times Reporter" — creating elite legal analysis threads for X (Twitter).
 
-Voice:
-- Fast, precise, high signal
+## CRITICAL STRUCTURE: INCREASING DEPTH THREAD
 
-Tone:
-- Punchy first tweet
-- Increasing depth in follow-ups
+### THREAD ARCHITECTURE (3-5 tweets total):
 
-Hard rules:
-- No filler
-- No repetition
-- No generic commentary
+**TWEET 1: NEWS HOOK**
+- Start with a sharp, factual statement of the legal development
+- Maximum impact, minimum words
+- Example: "SC: Digital privacy is now a fundamental right under Article 21."
 
-Task:
-Create an X (Twitter) thread.
+**TWEET 2: CONTEXT & CLARIFICATION**
+- Provide essential context without over-explaining
+- Clarify what actually happened
+- Set up for deeper analysis
 
-Rules:
-- Tweet 1:
-  → Sharp hook + core news
-- Tweet 2–5:
-  → Clarify facts
-  → Add deeper implications
-  → Include non-obvious insights
-- Final tweet:
-  → Push to full article
+**TWEET 3: DEEPER IMPLICATIONS**
+- Move beyond surface-level analysis
+- Reveal non-obvious consequences
+- Connect to broader legal trends
 
-Formatting:
-- Separate tweets using: ---
-- Include ONE hashtag
-- Include link to full article in final tweet
+**TWEET 4: STRATEGIC INSIGHTS**
+- What this means for legal practice
+- Compliance requirements or strategic adjustments
+- Real-world impact on clients or cases
 
-Focus:
-- Later tweets should be MORE analytical than earlier ones
-- Build intellectual depth across the thread
+**FINAL TWEET: DRIVE TO FRAMER**
+- Summarize the thread's key insight
+- Pose a thought-provoking question
+- Include link to full Framer article for deeper analysis
+- Example: "For the full 1200-word analysis on what this means for digital rights in India, read: [Framer URL]"
 
-Article:
+## THREAD RULES:
+- **Increasing depth**: Each tweet should be more analytical than the previous
+- **Character limits**: Max 280 characters per tweet (be ruthless with editing)
+- **Hashtags**: Include 1-2 relevant hashtags in the thread
+- **No repetition**: Each tweet adds new information
+- **No filler**: Every word must earn its place
+- **Momentum**: Thread should build intellectual momentum toward the Framer article
+
+## FORMATTING:
+- Separate tweets with: ---
+- Include the Framer article URL in the final tweet
+- Use concise, punchy language
+
+## ARTICLE CONTEXT:
 Title: {article.title}
-Summary Intelligence:
-{summary}
+Source: {article.source}
+URL: {article.url}
+Key Facts: {summary}
 
 {framer_context}
 
-Output format:
-tweet 1
----
-tweet 2
----
-tweet 3
----
-tweet 4
+Write the thread following the structure above.
 """
 
 
 def build_x_combined_prompt(article: NormalizedArticle, framer_url: str = "") -> str:
-    """Build a SINGLE prompt that generates both summary AND X/Twitter thread.
-    
+    """Build a SINGLE prompt that generates both summary AND X/Twitter thread with increasing depth.
+
     Used by: pipeline.generate_draft_single_call() for platform='x'
     """
-    framer_context = f"\nFramer Article: {framer_url}" if framer_url else ""
+    framer_context = f"\nFramer Article URL (include in final tweet): {framer_url}" if framer_url else ""
+
     return f"""
 {LAWXY_REPORTER_PERSONA}
 
 ### THE ASSIGNMENT
-Analyze this legal article and create an X (Twitter) thread.
+Analyze this legal article and create an X (Twitter) thread with increasing depth that drives to the Framer article.
 
 ### OUTPUT FORMAT (JSON)
 Return a JSON object with exactly two fields:
 {{
   "summary": "3-5 sentence summary capturing the key legal development, what it means, and why it matters",
-  "draft": "The tweet content separated by '---'"
+  "draft": "The tweet thread with increasing depth, separated by '---'"
 }}
+
+### THREAD ARCHITECTURE (3-5 tweets total):
+1. **Tweet 1: News Hook** - Sharp, factual statement of the legal development
+2. **Tweet 2: Context & Clarification** - Essential context without over-explaining
+3. **Tweet 3: Deeper Implications** - Non-obvious consequences and broader trends
+4. **Tweet 4: Strategic Insights** - Impact on legal practice and compliance
+5. **Final Tweet: Drive to Framer** - Summarize key insight + link to full article
+
+### THREAD RULES:
+- **Increasing depth**: Each tweet should be more analytical than the previous
+- **Character limits**: Max 280 characters per tweet
+- **Hashtags**: Include 1-2 relevant hashtags in the thread
+- **No repetition**: Each tweet adds new information
+- **Momentum**: Build intellectual momentum toward the Framer article
+- **Final tweet**: Must include Framer article URL and a thought-provoking question
 
 ### ARTICLE TO ANALYZE
 Title: {article.title}
@@ -424,17 +450,6 @@ URL: {article.url}
 Content:
 {article.full_content or article.summary_hint or article.raw_excerpt or "(no content available)"}
 {framer_context}
-
-### THREAD RULES
-- 3-5 tweets maximum
-- Each tweet max 280 characters
-- Use "---" (three dashes) to separate tweets
-- Tweet 1: Sharp hook + core news
-- Tweets 2-5: Clarify facts, add deeper implications, non-obvious insights
-- Final tweet: Push to full article with link
-- Include ONE hashtag
-- Later tweets should be MORE analytical than earlier ones
-- Build intellectual depth across the thread
 
 Return ONLY the JSON object, no other text.
 """

@@ -17,15 +17,40 @@ import type {
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:9000/api'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    ...init,
-  })
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(text || `Request failed (${response.status})`)
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+      ...init,
+    })
+
+    if (!response.ok) {
+      let errorMessage = `Request failed (${response.status})`
+      try {
+        const errorData = await response.json()
+        if (errorData.detail) {
+          errorMessage = errorData.detail
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        }
+      } catch {
+        // If response is not JSON, try to get text
+        const text = await response.text()
+        if (text) errorMessage = text
+      }
+      throw new Error(errorMessage)
+    }
+
+    return (await response.json()) as T
+  } catch (error) {
+    if (error instanceof Error) {
+      // Check for network errors
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new Error('Cannot connect to the backend server. Please make sure the backend is running on http://localhost:8000')
+      }
+      throw error
+    }
+    throw new Error('Unknown error occurred')
   }
-  return (await response.json()) as T
 }
 
 export const api = {
@@ -40,6 +65,8 @@ export const api = {
     params.append('order', order)
     return request<PaginatedResponse<Article>>(`/articles?${params.toString()}`)
   },
+  getArticle: (articleId: string) =>
+    request<Article>(`/articles/${articleId}`),
   deleteArticle: (articleId: string) =>
     request<{ success: boolean; deleted_id: string }>(`/articles/${articleId}`, { method: 'DELETE' }),
   updateArticle: (articleId: string, updates: Partial<Article>) =>
@@ -48,28 +75,47 @@ export const api = {
       body: JSON.stringify(updates),
     }),
   searchNews: (
-    query: string, 
-    maxResults = 10, 
+    query: string,
+    maxResults = 10,
     searchDepth = 'basic',
     sources?: string[],
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    includeImages?: boolean,
+    includeDomains?: string[],
+    contentType?: string
   ) =>
     request<{ items: Article[]; total: number }>('/articles/search', {
       method: 'POST',
-      body: JSON.stringify({ 
-        query, 
-        max_results: maxResults, 
+      body: JSON.stringify({
+        query,
+        max_results: maxResults,
         search_depth: searchDepth,
         sources,
         start_date: startDate,
-        end_date: endDate
+        end_date: endDate,
+        include_images: includeImages,
+        include_domains: includeDomains,
+        content_type: contentType
       }),
     }),
   upsertSelected: (articles: Article[]) =>
     request<{ upserted: number }>('/articles/upsert-selected', {
       method: 'POST',
       body: JSON.stringify({ articles }),
+    }),
+  searchRSS: (
+    query?: string,
+    sources?: string[],
+    maxResults = 20
+  ) =>
+    request<{ items: Article[]; total: number }>('/articles/search-rss', {
+      method: 'POST',
+      body: JSON.stringify({
+        query,
+        sources,
+        max_results: maxResults
+      }),
     }),
 
   // Drafts
@@ -80,6 +126,8 @@ export const api = {
     if (articleId) params.append('article_id', articleId)
     return request<PaginatedResponse<Draft>>(`/drafts?${params.toString()}`)
   },
+  getDraft: (draftId: string) =>
+    request<Draft>(`/drafts/${draftId}`),
   generateDraft: (articleId: string, platform: string) =>
     request<Draft>('/drafts/generate', {
       method: 'POST',

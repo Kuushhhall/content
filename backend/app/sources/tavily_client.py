@@ -59,17 +59,37 @@ def _extract_date_from_content(content: str, title: str) -> datetime | None:
     return None
 
 
-def search_scc_legal_news(settings: Settings, query: str = "Supreme Court India judgment") -> list[NormalizedArticle]:
+def search_scc_legal_news(
+    settings: Settings,
+    query: str = "Supreme Court India judgment",
+    search_depth: str = "basic",
+    max_results: int = 15,
+    include_images: bool = False,
+    include_domains: list[str] | None = None,
+    content_type: str = "text"
+) -> list[NormalizedArticle]:
     if not settings.tavily_api_key:
-        log.debug("Tavily API key not set — skipping SCC search")
-        return []
+        log.error("Tavily API key not configured. Please set TAVILY_API_KEY in your .env file")
+        raise ValueError("Tavily API key not configured. Please set TAVILY_API_KEY in your .env file")
     payload = {
         "api_key": settings.tavily_api_key,
         "query": query,
-        "search_depth": "basic",
+        "search_depth": search_depth,
         "include_answer": False,
-        "max_results": 15,
+        "max_results": max_results,
+        "include_images": include_images,
     }
+
+    # Add include_domains if provided
+    if include_domains:
+        payload["include_domains"] = include_domains
+
+    # Map content_type to Tavily parameters
+    if content_type == "images":
+        payload["include_images"] = True
+        payload["max_results"] = min(max_results, 10)  # Limit for image searches
+    elif content_type == "full_articles":
+        payload["search_depth"] = "advanced"
     out: list[NormalizedArticle] = []
     try:
         with httpx.Client(timeout=30.0) as client:

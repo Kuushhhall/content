@@ -1,34 +1,43 @@
 import type { PropsWithChildren } from 'react'
 import { motion } from 'framer-motion'
-import { useUIStore } from '../store/uiStore'
 
 interface CardProps {
   className?: string
   hover?: boolean
   padding?: 'none' | 'sm' | 'md' | 'lg'
   onClick?: () => void
+  variant?: 'default' | 'outline' | 'ghost'
 }
 
-const paddings = { none: 'p-0', sm: 'p-4', md: 'p-8', lg: 'p-12' }
+const paddings = { none: 'p-0', sm: 'p-3', md: 'p-4', lg: 'p-6' }
+const variants = {
+  default: 'card',
+  outline: 'border border-border-primary bg-transparent',
+  ghost: 'bg-transparent',
+}
 
-export function Card({ children, className = '', hover = false, padding = 'md', onClick }: PropsWithChildren<CardProps>) {
-  const isDarkMode = useUIStore(state => state.isDarkMode);
-
+export function Card({
+  children,
+  className = '',
+  hover = false,
+  padding = 'md',
+  onClick,
+  variant = 'default'
+}: PropsWithChildren<CardProps>) {
   return (
-    <motion.section
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
       onClick={onClick}
-      className={`rounded-[2.5rem] border transition-all duration-500 ${paddings[padding]} ${
-        isDarkMode 
-          ? 'border-graphite/40 bg-stellar/20 shadow-none' 
-          : 'border-graphite/20 bg-cream shadow-xl shadow-ink/5 text-ink'
-      } ${
-        hover ? 'hover:scale-[1.01] hover:shadow-2xl' : ''
-      } ${className}`}
+      className={`
+        ${variants[variant]}
+        ${paddings[padding]}
+        ${hover ? 'card-hover cursor-pointer' : ''}
+        ${className}
+      `}
     >
       {children}
-    </motion.section>
+    </motion.div>
   )
 }

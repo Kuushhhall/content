@@ -100,7 +100,7 @@ def batch_generate(body: BatchDraftIn, store: StoreDep, settings: SettingsDep) -
 
     for platform in body.platforms:
         try:
-            draft = generate_draft(store, settings, article, platform)
+            draft = generate_draft(store, settings, article, platform, linkedin_target="profile")
             drafts.append(DraftOut.model_validate(draft.model_dump()))
         except Exception as e:
             log.exception("Batch generate failed for %s", platform)
@@ -164,7 +164,7 @@ def run_pipeline(store: StoreDep, settings: SettingsDep) -> PipelineRunOut:
         for article in top_articles:
             for platform in gen_platforms:
                 try:
-                    draft = generate_draft(store, settings, article, platform)
+                    draft = generate_draft(store, settings, article, platform, linkedin_target="profile")
                     generated_draft_ids.append(draft.id)
                     drafts_generated += 1
                 except Exception as e:
