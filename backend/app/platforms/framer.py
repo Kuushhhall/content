@@ -2,6 +2,7 @@ import json
 import logging
 import subprocess
 import uuid
+import html
 from pathlib import Path
 
 from app.core.config import Settings
@@ -62,6 +63,11 @@ def publish(draft: ContentDraft, settings: Settings) -> PublishResult:
         draft.body or 
         "Content not available"
     )
+    
+    # Decode HTML entities to fix issues like & becoming &
+    title = html.unescape(title)
+    excerpt = html.unescape(excerpt)
+    content = html.unescape(content)
     
     log.info(f"Extracted fields for Framer: title='{title[:50]}...', slug='{slug}', excerpt='{excerpt[:100]}...'")
 
