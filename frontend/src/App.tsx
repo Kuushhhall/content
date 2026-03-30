@@ -24,6 +24,7 @@ const pageVariants = {
 function App() {
   const location = useLocation()
   const isDarkMode = useUIStore(state => state.isDarkMode)
+  const isSidebarCollapsed = useUIStore(state => state.isSidebarCollapsed)
   const isLanding = location.pathname === '/'
 
   useEffect(() => {
@@ -59,7 +60,7 @@ function App() {
       {/* Conditionally render Side & Top bars */}
       {!isLanding && <Sidebar />}
 
-      <main className={`flex flex-1 flex-col overflow-hidden ${!isLanding ? 'lg:pl-72' : ''}`}>
+      <main className={`flex flex-1 flex-col overflow-hidden ${!isLanding ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72') : ''}`}>
         {!isLanding && <TopBar />}
 
         <div className={`relative z-10 flex-1 overflow-y-auto overflow-x-hidden ${!isLanding ? 'p-8 md:p-12' : ''} scrollbar-thin`}>
@@ -71,7 +72,7 @@ function App() {
               animate="animate"
               exit="exit"
               transition={{ duration: 0.2 }}
-              className={!isLanding ? "mx-auto max-w-[1400px]" : "h-full w-full"}
+              className={!isLanding ? "w-full max-w-full" : "h-full w-full"}
             >
               <Routes location={location}>
                 <Route path="/" element={<LandingPage />} />

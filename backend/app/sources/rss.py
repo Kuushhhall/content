@@ -118,9 +118,12 @@ def ingest_all_rss(settings: Settings) -> list[NormalizedArticle]:
     feeds = [
         ("LiveLaw", settings.rss_livelaw),
         ("BarAndBench", settings.rss_barandbench),
-        ("IndiaLegalLive", settings.rss_indialegal),
-        ("Supreme Court India", settings.rss_supreme_court),
-        ("High Courts", settings.rss_high_courts),
+        ("LegallyIndia", settings.rss_legallyindia),
+        ("Law360", settings.rss_law360),
+        ("ABA Journal", settings.rss_abajournal),
+        ("Reuters Legal", settings.rss_reuters_legal),
+        ("Legal Tech News", settings.rss_legaltech),
+        ("National Law Journal", settings.rss_nlj),
     ]
     combined: list[NormalizedArticle] = []
     for label, url in feeds:

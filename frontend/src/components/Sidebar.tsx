@@ -9,6 +9,7 @@ import {
   Zap,
   ChevronLeft,
   ChevronRight,
+  Search,
 } from 'lucide-react'
 import { NavLink, useLocation, Link } from 'react-router-dom'
 import { useUIStore } from '../store/uiStore'
@@ -16,7 +17,8 @@ import { useStatusSocket } from '../hooks/useStatusSocket'
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/news-search', label: 'News Search', icon: Newspaper },
+  { path: '/news', label: 'News Feed', icon: Newspaper },
+  { path: '/news-search', label: 'News Search', icon: Search },
   { path: '/content-generation', label: 'Content Generation', icon: PenTool },
   { path: '/scheduler', label: 'Scheduler', icon: Calendar },
   { path: '/engagement', label: 'Engagement', icon: MessageSquare },
