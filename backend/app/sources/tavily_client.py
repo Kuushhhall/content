@@ -126,7 +126,12 @@ def search_legal_news(
         return []
 
     # Collect images returned at top level
-    top_images: list[str] = [img.get("url", "") for img in (data.get("images") or []) if img.get("url")]
+    raw_images = data.get("images") or []
+    top_images: list[str] = [
+        img if isinstance(img, str) else img.get("url", "")
+        for img in raw_images
+        if (img if isinstance(img, str) else img.get("url", ""))
+    ]
 
     for idx, item in enumerate(data.get("results") or []):
         url = item.get("url") or ""
