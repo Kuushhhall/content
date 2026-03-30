@@ -1,515 +1,565 @@
-import { useState, useMemo } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { 
-  ExternalLink, 
-  RefreshCw, 
-  Newspaper, 
-  Search, 
-  TrendingUp, 
-  Tag, 
-  ArrowUpRight, 
-  Sparkles,
-  X,
-  Maximize2,
-  Calendar,
-  Globe,
-  Trash2,
-  ArrowUpDown,
-  Filter
-} from 'lucide-react'
-import toast from 'react-hot-toast'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useState, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ExternalLink, RefreshCw, Sparkles, X, Trash2,
+  Loader2, Flame, Calendar,
+  LayoutGrid, List, Search as SearchIcon, ChevronDown,
+  FileText, Clock,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
-import { Card } from '../components/Card'
-import { Badge } from '../components/Badge'
-import { Spinner } from '../components/Spinner'
-import { EmptyState } from '../components/EmptyState'
-import { SkeletonList } from '../components/Skeleton'
-import { SearchNewsModal } from '../components/SearchNewsModal'
-import { ModalPortal } from '../components/ModalPortal'
-import { api } from '../lib/api'
-import { useUIStore } from '../store/uiStore'
-import type { Article } from '../types'
+import { api } from '../lib/api';
+import type { Article, PaginatedResponse } from '../types';
+
+const TIME_PRESETS = [
+  { label: '24h', days: 1 },
+  { label: '2 days', days: 2 },
+  { label: '3 days', days: 3 },
+  { label: '1 week', days: 7 },
+];
 
 function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return 'Recently fetched'
+  if (!dateStr) return 'Recently';
   try {
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) return 'Recently fetched'
-    
-    const diff = Date.now() - date.getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'Just now'
-    if (mins < 60) return `${mins}m ago`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h ago`
-    const days = Math.floor(hrs / 24)
-    if (days < 7) return `${days}d ago`
-    if (days < 30) return `${Math.floor(days / 7)}w ago`
-    return `${Math.floor(days / 30)}mo ago`
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Recently';
+    const diff = Date.now() - date.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
   } catch {
-    return 'Recently fetched'
+    return 'Recently';
   }
 }
 
-const kindBadge: Record<string, string> = {
-  rss: 'bg-info/10 text-info border-info/20',
-  tavily: 'bg-volt/10 text-volt border-volt/20',
-  manual: 'bg-graphite/20 text-dim border-graphite/20',
+function fmtDate(iso?: string | null) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export function NewsFeed() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const isDarkMode = useUIStore(state => state.isDarkMode)
-  const { selectedArticleId, setSelectedArticleId } = useUIStore()
-  
-  const [search, setSearch] = useState('')
-  const [modalArticle, setModalArticle] = useState<Article | null>(null)
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
-  const [sortBy, setSortBy] = useState<'date' | 'virality' | 'source'>('date')
-  const [filterSource, setFilterSource] = useState<string>('')
+  const navigate = useNavigate();
+  const qc = useQueryClient();
 
-  const { data: articles, isLoading } = useQuery({
-    queryKey: ['articles'],
-    queryFn: () => api.listArticles(),
-  })
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'published_at' | 'virality'>('published_at');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [modalArticle, setModalArticle] = useState<Article | null>(null);
 
-  const ingestMutation = useMutation({
-    mutationFn: api.ingest,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['drafts'] })
-      navigate('/studio')
+  // Ingest options
+  const [ingestOpen, setIngestOpen] = useState(false);
+  const [ingestDays, setIngestDays] = useState(1);
+  const [ingestQuery, setIngestQuery] = useState('Supreme Court India judgment');
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['articles', 'feed'],
+    queryFn: () => api.listArticles(1, 100, undefined, sortBy, 'desc', true),
+    refetchInterval: 30000,
+  });
+
+  const articles = useMemo(() => {
+    let items = data?.items ?? [];
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(a =>
+        a.title.toLowerCase().includes(q) ||
+        a.source.toLowerCase().includes(q) ||
+        (a.summary_hint || '').toLowerCase().includes(q)
+      );
+    }
+    if (sortBy === 'virality') {
+      items = [...items].sort((a, b) =>
+        (b.content_intelligence?.virality_score ?? 0) - (a.content_intelligence?.virality_score ?? 0)
+      );
+    }
+    return items;
+  }, [data, search, sortBy]);
+
+  const ingestMut = useMutation({
+    mutationFn: () => api.ingest({ days_back: ingestDays, query: ingestQuery }),
+    onSuccess: r => {
+      toast.success(`Ingested ${r.upserted} new article(s)`);
+      qc.invalidateQueries({ queryKey: ['articles'] });
+      setIngestOpen(false);
     },
-    onError: (err) => {
-      toast.error(`Ingestion failed: ${(err as Error).message}`)
-    },
-  })
+    onError: (e: Error) => toast.error(e.message || 'Ingest failed'),
+  });
 
-  const deleteMutation = useMutation({
-    mutationFn: api.deleteArticle,
-    onSuccess: (_, articleId) => {
-      queryClient.invalidateQueries({ queryKey: ['articles'] })
-      toast.success('Article deleted successfully')
-      // Close modal if the deleted article was being viewed
-      if (modalArticle?.id === articleId) {
-        setModalArticle(null)
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.deleteArticle(id),
+    onSuccess: (_, id) => {
+      toast.success('Article deleted');
+      qc.setQueryData<PaginatedResponse<Article>>(['articles', 'feed'], (old) =>
+        old ? { ...old, items: old.items.filter((a) => a.id !== id) } : old
+      );
+      if (modalArticle?.id === id) setModalArticle(null);
+    },
+    onError: (e: Error) => toast.error(e.message || 'Delete failed'),
+  });
+
+  const fetchContentMut = useMutation({
+    mutationFn: (id: string) => api.fetchFullContent(id),
+    onSuccess: (data) => {
+      toast.success('Full content fetched');
+      qc.invalidateQueries({ queryKey: ['articles'] });
+      // Update modal article if open
+      if (modalArticle?.id === data.article_id) {
+        setModalArticle(a => a ? { ...a, full_content: data.full_content, full_content_fetched: true } : a);
       }
     },
-    onError: (err) => {
-      toast.error(`Delete failed: ${(err as Error).message}`)
-    },
-  })
-
-  const handleDelete = (articleId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    deleteMutation.mutate(articleId)
-  }
-
-  const filtered = useMemo(() => {
-    let items = (articles?.items ?? []).filter(
-      (a) =>
-        (!search ||
-          a.title.toLowerCase().includes(search.toLowerCase()) ||
-          a.source.toLowerCase().includes(search.toLowerCase()) ||
-          a.content_intelligence?.topic?.toLowerCase().includes(search.toLowerCase()) ||
-          a.content_intelligence?.legal_area?.toLowerCase().includes(search.toLowerCase())) &&
-        (!filterSource || a.source === filterSource)
-    )
-
-    // Sort items
-    items = [...items].sort((a, b) => {
-      if (sortBy === 'date') {
-        return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
-      } else if (sortBy === 'virality') {
-        return (b.content_intelligence?.virality_score || 0) - (a.content_intelligence?.virality_score || 0)
-      } else {
-        return a.source.localeCompare(b.source)
-      }
-    })
-
-    return items
-  }, [articles?.items, search, sortBy, filterSource])
-
-  const uniqueSources = useMemo(() => {
-    const sources = new Set((articles?.items ?? []).map(a => a.source))
-    return Array.from(sources).sort()
-  }, [articles?.items])
-
-  const selectArticle = (article: Article) => {
-    setSelectedArticleId(article.id)
-    navigate('/studio')
-  }
+    onError: (e: Error) => toast.error(e.message || 'Failed to fetch content'),
+  });
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
-      {/* Search Header */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          <div className="relative flex-1 min-w-[300px] max-w-xl group">
-            <Search size={20} className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors duration-300 ${isDarkMode ? 'text-dim/60 group-focus-within:text-volt' : 'text-slate-400 group-focus-within:text-teal-600'}`} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search News from the database..."
-              className="input-field h-14 pl-14 pr-6 text-base font-medium"
-            />
+    <div className="flex flex-col h-full bg-gray-950 text-gray-100 min-h-screen">
+      {/* Header */}
+      <div className="border-b border-gray-800 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-white">News Feed</h1>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {articles.length} selected article{articles.length !== 1 ? 's' : ''} ready for content generation
+            </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsSearchModalOpen(true)}
-              className={`h-14 px-8 gap-3 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all ${
-                isDarkMode 
-                  ? 'border-graphite/40 bg-stellar/20 text-silver hover:bg-white/5 hover:border-volt/30' 
-                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-teal-300 shadow-sm'
-              }`}
+              onClick={() => navigate('/news-search')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition-colors"
             >
-              <Search size={16} />
-              <span>Search for Latest News</span>
+              <SearchIcon className="w-4 h-4" /> Search News
+            </button>
+            <button
+              onClick={() => setIngestOpen(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${ingestMut.isPending ? 'animate-spin' : ''}`} />
+              Ingest
+              <ChevronDown className="w-3 h-3" />
             </button>
           </div>
         </div>
 
-        {/* Filters and Sort */}
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Sort Dropdown */}
-          <div className="flex items-center gap-2">
-            <ArrowUpDown size={16} className={isDarkMode ? 'text-dim' : 'text-slate-400'} />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'date' | 'virality' | 'source')}
-              className={`h-10 px-4 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${
-                isDarkMode 
-                  ? 'bg-void/50 border-graphite/40 text-silver focus:border-volt' 
-                  : 'bg-white border-slate-200 text-slate-900 focus:border-teal-500'
-              }`}
+        {/* Ingest options dropdown */}
+        <AnimatePresence>
+          {ingestOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-3 bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3 overflow-hidden"
             >
-              <option value="date">Sort by Date</option>
-              <option value="virality">Sort by Virality</option>
-              <option value="source">Sort by Source</option>
-            </select>
-          </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-400 mb-1 block">Query</label>
+                  <input
+                    type="text"
+                    value={ingestQuery}
+                    onChange={e => setIngestQuery(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Time range</label>
+                  <div className="flex gap-1.5">
+                    {TIME_PRESETS.map(p => (
+                      <button
+                        key={p.days}
+                        onClick={() => setIngestDays(p.days)}
+                        className={`px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${
+                          ingestDays === p.days
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setIngestOpen(false)} className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1.5">
+                  Cancel
+                </button>
+                <button
+                  onClick={() => ingestMut.mutate()}
+                  disabled={ingestMut.isPending}
+                  className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg"
+                >
+                  {ingestMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  Fetch Articles
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-          {/* Source Filter Chips */}
-          <div className="flex items-center gap-2">
-            <Filter size={16} className={isDarkMode ? 'text-dim' : 'text-slate-400'} />
-            <button
-              onClick={() => setFilterSource('')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                !filterSource
-                  ? 'bg-volt text-ink'
-                  : isDarkMode
-                    ? 'bg-void/50 border border-graphite/40 text-dim hover:border-volt/30'
-                    : 'bg-slate-100 border border-slate-200 text-slate-600 hover:border-teal-300'
-              }`}
-            >
-              All
-            </button>
-            {uniqueSources.slice(0, 5).map((source) => (
-              <button
-                key={source}
-                onClick={() => setFilterSource(source)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  filterSource === source
-                    ? 'bg-volt text-ink'
-                    : isDarkMode
-                      ? 'bg-void/50 border border-graphite/40 text-dim hover:border-volt/30'
-                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:border-teal-300'
-                }`}
-              >
-                {source}
-              </button>
-            ))}
-          </div>
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 px-6 py-3 border-b border-gray-800/50">
+        <div className="flex-1 relative">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Filter articles..."
+            className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-600"
+          />
+        </div>
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value as 'published_at' | 'virality')}
+          className="bg-gray-900 border border-gray-800 text-sm text-gray-300 rounded-lg px-2 py-1.5 focus:outline-none"
+        >
+          <option value="published_at">Latest</option>
+          <option value="virality">Virality</option>
+        </select>
+        <div className="flex items-center gap-1 bg-gray-900 border border-gray-800 rounded-lg p-1">
+          <button onClick={() => setViewMode('list')} className={`p-1 rounded transition-colors ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>
+            <List className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => setViewMode('grid')} className={`p-1 rounded transition-colors ${viewMode === 'grid' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
-      {isLoading ? (
-        <SkeletonList count={6} />
-      ) : filtered.length === 0 ? (
-        <Card className="py-32 flex flex-col items-center justify-center border-dashed">
-          <EmptyState
-            icon={Newspaper}
-            title={search ? "Signal Fragmented" : "Registry Empty"}
-            description={search ? `No intelligence logs match "${search}". Try alternative search vectors.` : 'Intelligence ingestion required to begin workflow.'}
-          />
-        </Card>
-      ) : (
-        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((article, index) => {
-            const selected = selectedArticleId === article.id
-            const ci = article.content_intelligence
-            const isViral = ci && ci.virality_score >= 0.4
+      {/* Content */}
+      <div className="flex-1 overflow-auto px-6 py-4">
+        {isLoading && (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 animate-spin text-violet-400" />
+          </div>
+        )}
 
-            return (
-              <motion.div
-                layout
+        {isError && (
+          <div className="text-center py-16 text-red-400 text-sm">
+            Failed to load articles. Make sure the backend is running.
+          </div>
+        )}
+
+        {!isLoading && !isError && articles.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <FileText className="w-12 h-12 text-gray-700" />
+            <div>
+              <p className="text-gray-400 font-medium">No articles in your feed</p>
+              <p className="text-gray-600 text-sm mt-1">
+                Use <span className="text-violet-400">Search News</span> to find articles and add them here,
+                or click <span className="text-violet-400">Ingest</span> to auto-fetch latest legal news.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/news-search')}
+              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              <SearchIcon className="w-4 h-4" /> Search News
+            </button>
+          </div>
+        )}
+
+        {!isLoading && articles.length > 0 && (
+          <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-2'}>
+            {articles.map(article => (
+              <FeedArticleCard
                 key={article.id}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className={`group relative flex flex-col rounded-[2.5rem] border transition-all duration-500 overflow-hidden ${
-                  selected
-                    ? 'border-volt bg-volt/5 shadow-glow-volt/10 ring-2 ring-volt/10'
-                    : isDarkMode 
-                      ? 'border-graphite/40 bg-stellar/10 hover:border-volt/30' 
-                      : 'border-slate-200 bg-white hover:border-teal-300 shadow-xl shadow-slate-200/30'
-                }`}
-              >
-                <div className="p-8 flex-1">
-                  <div className="mb-6 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                       <span className="text-[10px] font-black text-volt">#{index + 1}</span>
-                       <div className={`rounded-xl px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${kindBadge[article.kind] || 'bg-graphite/20 text-dim border-graphite/40'}`}>
-                        {article.kind}
-                      </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted">{article.source}</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-muted/60">{timeAgo(article.published_at)}</span>
-                  </div>
+                article={article}
+                layout={viewMode}
+                onClick={() => setModalArticle(article)}
+                onDelete={() => deleteMut.mutate(article.id)}
+                onGenerate={() => navigate(`/studio?article_id=${article.id}`)}
+                isDeleting={deleteMut.isPending && deleteMut.variables === article.id}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-                  <h3 className={`mb-4 font-serif text-xl font-bold leading-tight transition-colors text-main group-hover:text-volt line-clamp-2`}>
-                    {article.title}
-                  </h3>
-
-                  {ci && (
-                    <div className="mb-6 flex flex-wrap gap-2">
-                       {ci.topic && (
-                        <div className={`flex items-center gap-2 rounded-[10px] px-3 py-1.5 text-[10px] font-bold border ${isDarkMode ? 'bg-void/50 border-graphite/40 text-dim' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                          <Tag size={12} className="text-volt" /> {ci.topic}
-                        </div>
-                      )}
-                      {isViral && (
-                        <div className="flex items-center gap-2 rounded-[10px] bg-success/10 px-3 py-1.5 text-[10px] font-black text-success border border-success/20">
-                          <TrendingUp size={12} /> HOT
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <p className="line-clamp-3 text-xs leading-relaxed transition-colors text-muted">
-                    {article.structured_summary || article.summary_hint || 'Loading summary...'}
-                  </p>
-                </div>
-
-                {/* Tactical Footer */}
-                <div className={`mt-auto border-t p-6 flex items-center justify-between transition-colors ${
-                  isDarkMode ? 'border-graphite/40 bg-void/30' : 'border-slate-100 bg-slate-50/70'
-                }`}>
-                  <button
-                    onClick={() => selectArticle(article)}
-                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all text-volt hover:translate-x-1 group/launch"
-                  >
-                    <span>Initiate Draft</span>
-                    <ArrowUpRight size={14} className="mb-0.5 group-hover/launch:-translate-y-0.5 group-hover/launch:translate-x-0.5 transition-transform" />
-                  </button>
-                  
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setModalArticle(article)}
-                      className={`p-3 rounded-2xl transition-all ${
-                        isDarkMode ? 'text-dim hover:text-silver hover:bg-white/5' : 'text-slate-400 hover:text-slate-900 hover:bg-white shadow-sm border border-slate-100'
-                      }`}
-                      title="Analyze full report"
-                    >
-                      <Maximize2 size={18} />
-                    </button>
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`p-3 rounded-2xl transition-all ${
-                         isDarkMode ? 'text-dim hover:text-silver hover:bg-white/5' : 'text-slate-400 hover:text-slate-900 hover:bg-white shadow-sm border border-slate-100'
-                      }`}
-                    >
-                      <ExternalLink size={18} />
-                    </a>
-                    <button
-                      onClick={(e) => handleDelete(article.id, e)}
-                      disabled={deleteMutation.isPending}
-                      className={`p-3 rounded-2xl transition-all ${
-                        isDarkMode 
-                          ? 'text-dim hover:text-danger hover:bg-danger/10' 
-                          : 'text-slate-400 hover:text-red-600 hover:bg-red-50 shadow-sm border border-slate-100'
-                      }`}
-                      title="Delete article"
-                    >
-                      {deleteMutation.isPending ? <Spinner size={18} /> : <Trash2 size={18} />}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Intelligence Modal */}
+      {/* Article Detail Modal */}
       <AnimatePresence>
         {modalArticle && (
-          <ModalPortal>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setModalArticle(null)}
-                className="absolute inset-0 bg-void/80 backdrop-blur-3xl"
-              />
-              
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 40 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 40 }}
-                className={`relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-[3rem] border transition-all duration-500 shadow-2xl ${
-                  isDarkMode ? 'border-graphite/40 bg-stellar/40' : 'border-slate-200 bg-white shadow-2xl shadow-slate-900/10'
-                }`}
-              >
-              {/* Modal Header */}
-              <div className={`flex items-center justify-between p-8 border-b ${isDarkMode ? 'border-graphite/40 bg-void/40' : 'border-slate-100 bg-slate-50'}`}>
-                <div className="flex items-center gap-4">
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${isDarkMode ? 'bg-volt/10 text-volt' : 'bg-teal-50 text-teal-600'}`}>
-                    <Sparkles size={24} />
-                  </div>
-                  <div>
-                    <h4 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-dim' : 'text-slate-400'}`}>Article Details</h4>
-                    <p className={`text-xs font-bold ${isDarkMode ? 'text-silver' : 'text-slate-900'}`}>{modalArticle.source} • {modalArticle.id}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setModalArticle(null)}
-                  className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'text-dim hover:bg-white/5 hover:text-silver' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-900'}`}
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="overflow-y-auto p-10 max-h-[calc(90vh-100px)] custom-scrollbar">
-                <div className="flex flex-wrap gap-4 mb-8">
-                  <Badge variant="volt" size="md">{modalArticle.kind.toUpperCase()}</Badge>
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-graphite/20 bg-void/30 text-xs font-bold text-muted">
-                    <Calendar size={14} className="text-amethyst" /> 
-                    {modalArticle.published_at 
-                      ? new Date(modalArticle.published_at).toLocaleDateString('en-US', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric' 
-                        })
-                      : 'Recently fetched'
-                    }
-                  </div>
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-graphite/20 bg-void/30 text-xs font-bold text-muted">
-                    <Globe size={14} className="text-volt" /> {modalArticle.source}
-                  </div>
-                </div>
-
-                <h2 className="text-3xl md:text-4xl font-serif font-bold leading-tight mb-8 text-main">
-                  {modalArticle.title}
-                </h2>
-
-                <div className="grid gap-10 md:grid-cols-3">
-                  <div className="md:col-span-2 space-y-10">
-                    {/* Executive Summary */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                         <div className="h-1 w-8 rounded-full bg-volt" />
-                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-volt">Summary</span>
-                      </div>
-                      <p className="text-lg leading-relaxed text-muted font-medium">
-                        {modalArticle.structured_summary || modalArticle.summary_hint || "Summary analysis in progress..."}
-                      </p>
-                    </div>
-
-                    {/* Full Analysis / Body */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`h-1 w-8 rounded-full ${modalArticle.full_content ? 'bg-amethyst' : 'bg-dim/20'}`} />
-                          <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${modalArticle.full_content ? 'text-amethyst' : 'text-muted'}`}>
-                            {modalArticle.full_content ? 'Full Article' : 'Summary'}
-                          </span>
-                        </div>
-                        <div className={`prose max-w-none transition-colors duration-500 ${isDarkMode ? 'prose-invert' : 'prose-slate'}`}>
-                          <p className="text-base leading-relaxed text-muted whitespace-pre-wrap">
-                            {modalArticle.full_content || modalArticle.structured_summary || modalArticle.summary_hint || "Deep intelligence scan pending for this entry."}
-                          </p>
-                        </div>
-                    </div>
-                  </div>
-
-                  {/* Sidebar stats/insights */}
-                  <div className="space-y-8">
-                    {/* AI Insights Card */}
-                    <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-stellar/20 border-graphite/40' : 'bg-slate-50 border-slate-200'}`}>
-                      <h5 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-volt mb-6">
-                        <TrendingUp size={14} /> Metrics
-                      </h5>
-                      <div className="space-y-6">
-                        <div>
-                          <p className="text-[10px] font-bold text-muted mb-1 uppercase">Virality Score</p>
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-1.5 rounded-full bg-graphite/20 overflow-hidden">
-                               <motion.div 
-                                 initial={{ width: 0 }}
-                                 animate={{ width: `${(modalArticle.content_intelligence?.virality_score || 0.1) * 100}%` }}
-                                 className="h-full bg-success shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
-                               />
-                            </div>
-                            <span className="text-xs font-black text-main">{Math.round((modalArticle.content_intelligence?.virality_score || 0) * 100)}%</span>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <p className="text-[10px] font-bold text-muted mb-3 uppercase">Key Insights</p>
-                          <div className="space-y-3">
-                            {modalArticle.content_intelligence?.key_insights?.map((ins, i) => (
-                              <div key={i} className="flex gap-3 text-xs leading-relaxed text-muted">
-                                <div className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-volt" />
-                                <span>{ins}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Block */}
-                    <div className="space-y-3">
-                       <button
-                         onClick={() => {
-                           selectArticle(modalArticle)
-                           setModalArticle(null)
-                         }}
-                         className="w-full btn-primary h-14"
-                       >
-                         <Sparkles size={18} /> Create Draft
-                       </button>
-                       <a
-                         href={modalArticle.url}
-                         target="_blank"
-                         rel="noopener noreferrer"
-                         className={`flex items-center justify-center gap-2 w-full h-14 rounded-2xl border text-[11px] font-black uppercase tracking-widest transition-all ${
-                           isDarkMode ? 'border-graphite/40 bg-stellar/20 text-silver hover:bg-white/5' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                         }`}
-                       >
-                         <ExternalLink size={18} /> View Source
-                       </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-          </ModalPortal>
+          <ArticleModal
+            article={modalArticle}
+            onClose={() => setModalArticle(null)}
+            onGenerate={() => { setModalArticle(null); navigate(`/studio?article_id=${modalArticle.id}`); }}
+            onDelete={() => { deleteMut.mutate(modalArticle.id); }}
+            onFetchContent={() => fetchContentMut.mutate(modalArticle.id)}
+            isFetching={fetchContentMut.isPending}
+            isDeleting={deleteMut.isPending}
+          />
         )}
       </AnimatePresence>
-
-      {/* Search News Modal */}
-      <SearchNewsModal
-        isOpen={isSearchModalOpen}
-        onClose={() => setIsSearchModalOpen(false)}
-      />
     </div>
-  )
+  );
 }
+
+// ── Feed Card ──────────────────────────────────────────────────────────────────
+
+interface FeedCardProps {
+  article: Article;
+  layout: 'grid' | 'list';
+  onClick: () => void;
+  onDelete: () => void;
+  onGenerate: () => void;
+  isDeleting: boolean;
+}
+
+const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, onDelete, onGenerate, isDeleting }) => {
+  const virality = article.content_intelligence?.virality_score ?? 0;
+  const viralityPct = Math.round(virality * 100);
+
+  if (layout === 'list') {
+    return (
+      <div
+        onClick={onClick}
+        className="flex items-start gap-3 p-3 rounded-xl border border-gray-800 bg-gray-900/50 hover:border-gray-700 cursor-pointer transition-all group"
+      >
+        {article.image_url && (
+          <img
+            src={article.image_url}
+            alt=""
+            className="w-16 h-12 rounded-lg object-cover shrink-0"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white line-clamp-2 leading-snug">{article.title}</p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <a
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-xs text-violet-400 hover:text-violet-300 font-medium flex items-center gap-0.5"
+            >
+              {article.source} <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+            <span className="text-xs text-gray-500">{timeAgo(article.published_at)}</span>
+            {viralityPct > 0 && (
+              <span className="flex items-center gap-0.5 text-xs text-amber-400">
+                <Flame className="w-3 h-3" />{viralityPct}%
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={onGenerate}
+            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors"
+            title="Generate content"
+          >
+            <Sparkles className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={onClick}
+      className="flex flex-col rounded-xl border border-gray-800 bg-gray-900/50 hover:border-gray-700 cursor-pointer transition-all overflow-hidden group"
+    >
+      {article.image_url && (
+        <img
+          src={article.image_url}
+          alt=""
+          className="w-full h-32 object-cover"
+          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        />
+      )}
+      <div className="p-3 flex-1 flex flex-col">
+        <p className="text-sm font-medium text-white line-clamp-3 leading-snug">{article.title}</p>
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <a
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="text-xs text-violet-400 hover:text-violet-300 font-medium flex items-center gap-0.5"
+          >
+            {article.source} <ExternalLink className="w-2.5 h-2.5" />
+          </a>
+          <span className="text-xs text-gray-500">{timeAgo(article.published_at)}</span>
+          {viralityPct > 0 && (
+            <span className="flex items-center gap-0.5 text-xs text-amber-400 ml-auto">
+              <Flame className="w-3 h-3" />{viralityPct}%
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2 mt-3 pt-2 border-t border-gray-800 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={onGenerate}
+            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded-lg text-xs transition-colors"
+          >
+            <Sparkles className="w-3 h-3" /> Generate
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Article Modal ──────────────────────────────────────────────────────────────
+
+interface ModalProps {
+  article: Article;
+  onClose: () => void;
+  onGenerate: () => void;
+  onDelete: () => void;
+  onFetchContent: () => void;
+  isFetching: boolean;
+  isDeleting: boolean;
+}
+
+const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDelete, onFetchContent, isFetching, isDeleting }) => {
+  const virality = article.content_intelligence?.virality_score ?? 0;
+  const insights = article.content_intelligence?.key_insights ?? [];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 10 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 10 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+      >
+        {/* Modal header */}
+        <div className="flex items-start justify-between p-5 border-b border-gray-800">
+          <div className="flex-1 min-w-0 pr-4">
+            <h2 className="text-base font-semibold text-white leading-snug">{article.title}</h2>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <a
+                href={article.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-0.5 font-medium"
+              >
+                {article.source} <ExternalLink className="w-3 h-3" />
+              </a>
+              <span className="text-xs text-gray-500 flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {fmtDate(article.published_at)}
+              </span>
+              {virality > 0 && (
+                <span className="text-xs text-amber-400 flex items-center gap-0.5">
+                  <Flame className="w-3 h-3" />
+                  {Math.round(virality * 100)}% virality
+                </span>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Modal body */}
+        <div className="flex-1 overflow-auto p-5 space-y-4">
+          {article.image_url && (
+            <img
+              src={article.image_url}
+              alt=""
+              className="w-full h-48 object-cover rounded-xl"
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          )}
+
+          {insights.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Key Insights</p>
+              <ul className="space-y-1">
+                {insights.map((insight, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-gray-300">
+                    <span className="text-violet-400 shrink-0">•</span>
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                {article.full_content_fetched ? 'Full Content' : 'Preview'}
+              </p>
+              {!article.full_content_fetched && (
+                <button
+                  onClick={onFetchContent}
+                  disabled={isFetching}
+                  className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300"
+                >
+                  {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clock className="w-3 h-3" />}
+                  Fetch full content
+                </button>
+              )}
+            </div>
+            <div className="bg-gray-800/50 rounded-xl p-4 max-h-64 overflow-auto">
+              <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                {article.full_content || article.raw_excerpt || article.summary_hint || 'No content available.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal footer */}
+        <div className="flex items-center justify-between p-4 border-t border-gray-800 gap-3">
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" /> Source
+            </a>
+            <button
+              onClick={onGenerate}
+              className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Sparkles className="w-4 h-4" /> Generate Content →
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+export default NewsFeed;

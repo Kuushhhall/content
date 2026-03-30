@@ -88,31 +88,21 @@ async def patch_draft(draft_id: str, body: DraftUpdateIn, store: StoreDep) -> Dr
 
 
 @router.post("/{draft_id}/regenerate", response_model=DraftOut)
-async def regenerate_draft(
-    draft_id: str,
-    store: StoreDep,
-    settings: SettingsDep,
-) -> DraftOut:
-    """Regenerate a draft with a fresh LLM call using single-call optimization."""
-    from app.llm.pipeline import generate_draft_single_call
-
-    # Get existing draft
+async def regenerate_draft(draft_id: str, store: StoreDep, settings: SettingsDep) -> DraftOut:
+    """Regenerate a draft using a fresh LLM call."""
     existing_draft = store.get_draft(draft_id)
     if not existing_draft:
         raise HTTPException(status_code=404, detail="Draft not found")
 
-    # Get original article
     article = store.get_article(existing_draft.article_id)
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
-    # Regenerate with single LLM call
-    new_draft = await generate_draft_single_call(
-        store,
-        settings,
-        article,
-        existing_draft.platform,
-        draft_id=draft_id,  # Keep same ID to overwrite
-    )
+    try:
+        new_draft = await generate_draft(
+            store, settings, article, existing_draft.platform, draft_id=draft_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return DraftOut.model_validate(new_draft.model_dump())

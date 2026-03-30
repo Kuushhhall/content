@@ -28,7 +28,7 @@ class NormalizedArticle(BaseModel):
     published_at: datetime | None = None
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     raw_excerpt: str | None = None
-    kind: Literal["rss", "tavily", "manual"] = "rss"
+    kind: Literal["tavily", "manual"] = "tavily"
     
     # Enhanced content intelligence
     content_intelligence: ContentIntelligence = Field(default_factory=ContentIntelligence)
@@ -42,3 +42,8 @@ class NormalizedArticle(BaseModel):
     decision_date: Optional[datetime] = None
     precedent_value: Literal["high", "medium", "low"] = "medium"
     jurisdiction: str = ""
+    
+    # New fields for refactored workflow
+    selected: bool = False
+    image_url: str | None = None
+    full_content_fetched: bool = False

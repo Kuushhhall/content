@@ -16,13 +16,18 @@ from app.api.schemas import (
     PipelineStatusOut,
 )
 from app.llm.pipeline import generate_draft
-from app.sources.rss import deduplicate_articles, score_articles_for_virality
+# from app.sources.rss import deduplicate_articles, score_articles_for_virality
 from app.state.models import PipelineRunLog
 from app.state.store import StateStore
 from app.workflows import ingest as ingest_workflow
 from app.workflows import publish as publish_workflow
 
 log = logging.getLogger(__name__)
+
+
+def score_articles_for_virality(articles):
+    """Passthrough — virality scores are set during ingest enrichment."""
+    return articles
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -89,7 +94,7 @@ def auto_select_articles(store: StoreDep, count: int = 3) -> AutoSelectOut:
 
 # --- Batch draft generation ---
 @router.post("/batch-generate", response_model=BatchDraftOut)
-def batch_generate(body: BatchDraftIn, store: StoreDep, settings: SettingsDep) -> BatchDraftOut:
+async def batch_generate(body: BatchDraftIn, store: StoreDep, settings: SettingsDep) -> BatchDraftOut:
     """Generate drafts for one article across multiple platforms at once."""
     article = store.get_article(body.article_id)
     if not article:
@@ -100,7 +105,7 @@ def batch_generate(body: BatchDraftIn, store: StoreDep, settings: SettingsDep) -
 
     for platform in body.platforms:
         try:
-            draft = generate_draft(store, settings, article, platform, linkedin_target="profile")
+            draft = await generate_draft(store, settings, article, platform, linkedin_target="profile")
             drafts.append(DraftOut.model_validate(draft.model_dump()))
         except Exception as e:
             log.exception("Batch generate failed for %s", platform)
@@ -111,7 +116,7 @@ def batch_generate(body: BatchDraftIn, store: StoreDep, settings: SettingsDep) -
 
 # --- Run full pipeline ---
 @router.post("/run", response_model=PipelineRunOut)
-def run_pipeline(store: StoreDep, settings: SettingsDep) -> PipelineRunOut:
+async def run_pipeline(store: StoreDep, settings: SettingsDep) -> PipelineRunOut:
     """One-click full pipeline: ingest → auto-select → generate → publish."""
     now = datetime.now(UTC)
     mode = store.get_pipeline_mode()
@@ -130,7 +135,7 @@ def run_pipeline(store: StoreDep, settings: SettingsDep) -> PipelineRunOut:
         # Step 1: Ingest
         run.steps.append({"step": "ingest", "status": "running", "at": datetime.now(UTC).isoformat()})
         store.update_pipeline_run(run)
-        n_ingested = ingest_workflow.run_ingestion(store, settings)
+        n_ingested = await ingest_workflow.run_ingestion(store, settings)
         run.articles_ingested = n_ingested
         run.steps[-1]["status"] = "completed"
         run.steps[-1]["count"] = n_ingested
@@ -164,7 +169,7 @@ def run_pipeline(store: StoreDep, settings: SettingsDep) -> PipelineRunOut:
         for article in top_articles:
             for platform in gen_platforms:
                 try:
-                    draft = generate_draft(store, settings, article, platform, linkedin_target="profile")
+                    draft = await generate_draft(store, settings, article, platform, linkedin_target="profile")
                     generated_draft_ids.append(draft.id)
                     drafts_generated += 1
                 except Exception as e:

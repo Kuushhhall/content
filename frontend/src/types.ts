@@ -44,6 +44,9 @@ export type Article = {
   parties: string[]
   jurisdiction: string
   precedent_value: string
+  selected: boolean
+  image_url: string | null
+  full_content_fetched: boolean
 }
 
 export type Draft = {

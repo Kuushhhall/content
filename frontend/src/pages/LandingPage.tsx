@@ -1,3 +1,4 @@
+import React from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { Zap, Sparkles, ArrowRight, Activity, Bot, ChevronRight } from 'lucide-react'
@@ -95,7 +96,7 @@ export function LandingPage() {
   )
 }
 
-function FeatureCard({ icon: Icon, title, desc }: { icon: any, title: string, desc: string }) {
+function FeatureCard({ icon: Icon, title, desc }: { icon: React.ElementType, title: string, desc: string }) {
   return (
     <motion.div
       whileHover={{ y: -4 }}

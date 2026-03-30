@@ -25,15 +25,6 @@ class Settings(BaseSettings):
     # Tavily (SCC / web search)
     tavily_api_key: str | None = None
 
-    # RSS feed URLs for top legal news sources (HTML content, not PDF)
-    rss_livelaw: str = "https://www.livelaw.in/rss"  # LiveLaw - Indian legal news
-    rss_barandbench: str = "https://www.barandbench.com/feed"  # Bar & Bench - Legal news
-    rss_legallyindia: str = "https://www.legallyindia.com/feed"  # Legally India
-    rss_law360: str = "https://www.law360.com/feed"  # Law360 (international)
-    rss_abajournal: str = "https://www.abajournal.com/feed"  # ABA Journal (US)
-    rss_reuters_legal: str = "https://www.reutersagency.com/feed/?best-topics=law-justice&post_type=best"  # Reuters Legal
-    rss_legaltech: str = "https://www.law.com/legaltechnews/feed/"  # Legal Tech News
-    rss_nlj: str = "https://www.law.com/nationallawjournal/feed/"  # National Law Journal
 
     # Scheduler - DISABLED
     # ingest_cron_minutes: int = 30

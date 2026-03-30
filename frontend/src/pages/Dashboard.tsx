@@ -5,7 +5,6 @@ import {
   PenTool,
   Send,
   MessageCircle,
-  BarChart3,
   CheckCircle2,
   XCircle,
   Clock,
@@ -37,7 +36,7 @@ export function Dashboard() {
     refetchInterval: 5000,
   })
 
-  const modeMutation = useMutation({
+  useMutation({
     mutationFn: (mode: 'auto' | 'manual') => api.setPipelineMode(mode),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })
@@ -59,7 +58,6 @@ export function Dashboard() {
   })
 
   const mode = pipelineStatus?.mode ?? status?.pipelineMode ?? 'manual'
-  const isAuto = mode === 'auto'
   const currentRun = pipelineStatus?.current_run
   const recentRuns = pipelineStatus?.recent_runs ?? []
 
@@ -287,7 +285,8 @@ function QuickStatItem({
   )
 }
 
-function ActionButton({ 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function ActionButton({
   icon: Icon, 
   label, 
   desc, 

@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 import { getStatusWsUrl } from '../lib/api'
 import type { StatusFeed } from '../types'
 
-const RECONNECT_DELAY = 3000 // 3 seconds
+const RECONNECT_DELAY = 3000
 const MAX_RECONNECT_ATTEMPTS = 10
 
 export function useStatusSocket(): StatusFeed | null {
@@ -11,60 +11,56 @@ export function useStatusSocket(): StatusFeed | null {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptsRef = useRef(0)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const connectRef = useRef<() => void>(() => {})
 
-  const connect = useCallback(() => {
-    // Clean up existing connection
-    if (wsRef.current) {
-      wsRef.current.close()
-    }
-
-    try {
-      const ws = new WebSocket(getStatusWsUrl())
-      wsRef.current = ws
-
-      ws.onopen = () => {
-        // Reset reconnect attempts on successful connection
-        reconnectAttemptsRef.current = 0
+  useEffect(() => {
+    function connect() {
+      if (wsRef.current) {
+        wsRef.current.close()
       }
+      try {
+        const ws = new WebSocket(getStatusWsUrl())
+        wsRef.current = ws
 
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(String(event.data)) as StatusFeed
-          setStatus(payload)
-        } catch {
-          // Ignore malformed payloads
+        ws.onopen = () => {
+          reconnectAttemptsRef.current = 0
         }
-      }
 
-      ws.onerror = () => {
-        // Error will trigger onclose, which handles reconnection
-      }
+        ws.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(String(event.data)) as StatusFeed
+            setStatus(payload)
+          } catch {
+            // ignore malformed payloads
+          }
+        }
 
-      ws.onclose = (event) => {
-        // Only attempt to reconnect if not a clean close and under max attempts
-        if (!event.wasClean && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        ws.onerror = () => {
+          // onclose will handle reconnect
+        }
+
+        ws.onclose = (event) => {
+          if (!event.wasClean && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttemptsRef.current += 1
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connectRef.current()
+            }, RECONNECT_DELAY)
+          }
+        }
+      } catch {
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttemptsRef.current += 1
           reconnectTimeoutRef.current = setTimeout(() => {
-            connect()
+            connectRef.current()
           }, RECONNECT_DELAY)
         }
       }
-    } catch {
-      // WebSocket creation failed, will retry on next attempt
-      if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-        reconnectAttemptsRef.current += 1
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect()
-        }, RECONNECT_DELAY)
-      }
     }
-  }, [])
 
-  useEffect(() => {
+    connectRef.current = connect
     connect()
 
     return () => {
-      // Clean up on unmount
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
       }
@@ -72,7 +68,7 @@ export function useStatusSocket(): StatusFeed | null {
         wsRef.current.close()
       }
     }
-  }, [connect])
+  }, [])
 
   return status
 }

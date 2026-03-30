@@ -27,6 +27,33 @@ class StateStore:
         self._persist()
         return article
 
+    def delete_article(self, article_id: str) -> bool:
+        """Delete an article and all its associated drafts from the store."""
+        if article_id not in self._state.articles:
+            return False
+        del self._state.articles[article_id]
+        # Cascade delete drafts for this article
+        draft_ids = [did for did, d in self._state.drafts.items() if d.article_id == article_id]
+        for did in draft_ids:
+            del self._state.drafts[did]
+        self._persist()
+        return True
+
+    def list_articles_older_than(self, days: int) -> list[NormalizedArticle]:
+        """List articles older than specified days."""
+        from datetime import datetime, timedelta, UTC
+        
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
+        old_articles = []
+        
+        for article in self._state.articles.values():
+            # Use fetched_at as fallback if published_at is None
+            article_date = article.published_at or article.fetched_at
+            if article_date < cutoff_date:
+                old_articles.append(article)
+        
+        return old_articles
+
     def list_articles(self) -> list[NormalizedArticle]:
         from datetime import UTC, datetime
 
@@ -46,6 +73,14 @@ class StateStore:
         self._persist()
         return draft
 
+    def delete_draft(self, draft_id: str) -> bool:
+        """Delete a draft by ID from the store."""
+        if draft_id in self._state.drafts:
+            del self._state.drafts[draft_id]
+            self._persist()
+            return True
+        return False
+
     def list_drafts(self, article_id: str | None = None) -> list[ContentDraft]:
         drafts = list(self._state.drafts.values())
         if article_id:
@@ -59,6 +94,14 @@ class StateStore:
         self._state.schedules[post.id] = post
         self._persist()
         return post
+
+    def delete_schedule(self, schedule_id: str) -> bool:
+        """Delete a schedule by ID from the store."""
+        if schedule_id in self._state.schedules:
+            del self._state.schedules[schedule_id]
+            self._persist()
+            return True
+        return False
 
     def list_schedules(self, status: str | None = None) -> list[ScheduledPost]:
         items = list(self._state.schedules.values())

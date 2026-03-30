@@ -1,6 +1,6 @@
 interface BadgeProps {
   children: React.ReactNode
-  variant?: 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger'
+  variant?: 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'volt' | 'muted'
   size?: 'sm' | 'md' | 'lg'
   dot?: boolean
   className?: string
@@ -13,6 +13,8 @@ const variants = {
   success: 'badge-success',
   warning: 'badge-warning',
   danger: 'badge-danger',
+  volt: 'badge-volt',
+  muted: 'badge-secondary',
 }
 
 const sizes = {

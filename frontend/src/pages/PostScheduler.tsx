@@ -158,7 +158,7 @@ export function PostScheduler() {
                              })}
                            </span>
                            {isPast && schedule.status === 'pending' && (
-                             <Badge variant="amber" size="sm" className="bg-volt/10 text-volt border-volt/20">Manifest Delayed</Badge>
+                             <Badge variant="warning" size="sm" className="bg-volt/10 text-volt border-volt/20">Manifest Delayed</Badge>
                            )}
                         </div>
                         {schedule.content_preview ? (

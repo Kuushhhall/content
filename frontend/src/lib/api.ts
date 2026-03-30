@@ -55,14 +55,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   // Articles
-  ingest: () => request<{ upserted: number }>('/articles/ingest', { method: 'POST' }),
-  listArticles: (page = 1, pageSize = 20, source?: string, sort_by = 'published_at', order = 'desc') => {
+  ingest: (options?: { days_back?: number; query?: string; max_results?: number; sources?: string[]; include_images?: boolean }) =>
+    request<{ upserted: number }>('/articles/ingest', {
+      method: 'POST',
+      body: JSON.stringify(options ?? {}),
+    }),
+  listArticles: (page = 1, pageSize = 20, source?: string, sort_by = 'published_at', order = 'desc', selectedOnly = false) => {
     const params = new URLSearchParams()
     params.append('page', page.toString())
     params.append('page_size', pageSize.toString())
     if (source) params.append('source', source)
     params.append('sort_by', sort_by)
     params.append('order', order)
+    if (selectedOnly) params.append('selected_only', 'true')
     return request<PaginatedResponse<Article>>(`/articles?${params.toString()}`)
   },
   getArticle: (articleId: string) =>
@@ -74,16 +79,26 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(updates),
     }),
+  fetchFullContent: (articleId: string) =>
+    request<{ article_id: string; full_content: string; content_length: number; fetched_at: string }>(`/articles/${articleId}/full-content`, {
+      method: 'GET',
+    }),
+  selectArticle: (articleId: string) =>
+    request<Article>(`/articles/${articleId}/select`, {
+      method: 'PATCH',
+    }),
+  selectBatchArticles: (articleIds: string[]) =>
+    request<{ selected_count: number; total_requested: number; message: string }>('/articles/select-batch', {
+      method: 'POST',
+      body: JSON.stringify({ article_ids: articleIds }),
+    }),
   searchNews: (
     query: string,
     maxResults = 10,
     searchDepth = 'basic',
     sources?: string[],
-    startDate?: string,
-    endDate?: string,
-    includeImages?: boolean,
-    includeDomains?: string[],
-    contentType?: string
+    daysBack = 1,
+    includeImages = true,
   ) =>
     request<{ items: Article[]; total: number }>('/articles/search', {
       method: 'POST',
@@ -92,11 +107,8 @@ export const api = {
         max_results: maxResults,
         search_depth: searchDepth,
         sources,
-        start_date: startDate,
-        end_date: endDate,
+        days_back: daysBack,
         include_images: includeImages,
-        include_domains: includeDomains,
-        content_type: contentType
       }),
     }),
   upsertSelected: (articles: Article[]) =>

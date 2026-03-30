@@ -172,7 +172,7 @@ export const PreviewPublishPanel: React.FC<PreviewPublishPanelProps> = ({
 
             {!isScheduling ? (
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => setIsScheduling(true)}
                 className="w-full"
               >
@@ -207,13 +207,13 @@ export const PreviewPublishPanel: React.FC<PreviewPublishPanelProps> = ({
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setIsScheduling(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
+                <Button
+                  onClick={() => setPreviewMode('full')}
+                  variant="ghost"
+                  className={`flex-1 ${previewMode === 'full' ? 'bg-volt text-ink' : ''}`}
+                >
+                  Full Preview
+                </Button>
                   <Button
                     onClick={handleSchedule}
                     disabled={!scheduleDate}
@@ -231,7 +231,7 @@ export const PreviewPublishPanel: React.FC<PreviewPublishPanelProps> = ({
 
       {/* Draft Summary */}
       {draft.summary && (
-        <Card variant="outline">
+        <Card variant="ghost">
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-text-primary">AI Summary</h4>
             <p className="text-sm text-text-secondary">{draft.summary}</p>
@@ -288,7 +288,7 @@ const FramerPreview: React.FC<{ content: string }> = ({ content }) => {
             title: "Legal Analysis",
             excerpt: content.substring(0, 100) + '...',
             body_md: content,
-            slug: "legal-analysis-" + Date.now(),
+            slug: "legal-analysis",
             published: true
           }, null, 2)}
         </pre>

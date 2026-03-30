@@ -27,8 +27,7 @@ def _client(settings: Settings) -> OpenAI:
 
 def _complete(settings: Settings, system_msg: str, user: str) -> str:
     if not settings.openai_api_key:
-        log.error("OPENAI_API_KEY not configured. Please set OPENAI_API_KEY in your .env file")
-        raise ValueError("OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file to generate real content")
+        raise ValueError("OpenAI API key not configured. Set OPENAI_API_KEY in your .env file.")
     client = _client(settings)
     resp = client.chat.completions.create(
         model=settings.llm_model,
@@ -41,6 +40,10 @@ def _complete(settings: Settings, system_msg: str, user: str) -> str:
     return (resp.choices[0].message.content or "").strip()
 
 
+def _best_content(article: NormalizedArticle) -> str:
+    """Return the richest content available for the article, capped at 4000 chars."""
+    content = article.full_content or article.raw_excerpt or article.summary_hint or article.title
+    return content[:4000]
 
 
 async def generate_draft(
@@ -51,35 +54,31 @@ async def generate_draft(
     draft_id: str | None = None,
     linkedin_target: str = "profile",
 ) -> ContentDraft:
-    """Generate a draft for a platform using direct article content and individual platform prompts."""
+    """Generate a platform-specific draft using the article's full content."""
     from datetime import UTC, datetime
 
+    content = _best_content(article)
     system_msg = system_prompts.GENERATOR_SYSTEM_PROMPT
-    
-    # Use individual platform prompts with full article content
+
     if platform == "linkedin":
-        body = _complete(settings, system_msg, prompts.build_linkedin_prompt(
-            article,
-            article.full_content or article.summary_hint or "",
-            target=linkedin_target
-        ))
+        body = _complete(settings, system_msg, prompts.build_linkedin_prompt(article, content, target=linkedin_target))
     elif platform == "x":
-        body = _complete(settings, system_msg, prompts.build_x_prompt(article, article.full_content or article.summary_hint or ""))
+        body = _complete(settings, system_msg, prompts.build_x_prompt(article, content))
         parts = prompts.split_x_thread(body)
         body = "\n---\n".join(parts)
     elif platform == "reddit":
-        body = _complete(settings, system_msg, prompts.build_reddit_prompt(article, article.full_content or article.summary_hint or ""))
+        body = _complete(settings, system_msg, prompts.build_reddit_prompt(article, content))
         title, text = prompts.parse_reddit_title_body(body)
         body = f"{title}\n\n{text}"
     elif platform == "framer":
-        body = _complete(settings, system_msg, prompts.build_framer_prompt(article, article.full_content or article.summary_hint or ""))
+        body = _complete(settings, system_msg, prompts.build_framer_prompt(article, content))
         body = _extract_json_block(body)
     elif platform == "instagram":
-        body = _complete(settings, system_msg, prompts.build_instagram_prompt(article, article.full_content or article.summary_hint or ""))
+        body = _complete(settings, system_msg, prompts.build_instagram_prompt(article, content))
     elif platform == "medium":
-        body = _complete(settings, system_msg, prompts.build_medium_prompt(article, article.full_content or article.summary_hint or ""))
+        body = _complete(settings, system_msg, prompts.build_medium_prompt(article, content))
     else:
-        raise ValueError(f"Unknown platform {platform}")
+        raise ValueError(f"Unknown platform: {platform}")
 
     did = draft_id or session_or_store.new_id("d_")
     draft = ContentDraft(
@@ -87,13 +86,10 @@ async def generate_draft(
         article_id=article.id,
         platform=platform,
         body=body,
-        summary=article.full_content or article.summary_hint or article.title,
+        summary=article.title,
         updated_at=datetime.now(UTC),
     )
-
-    # Save to StateStore
     session_or_store.upsert_draft(draft)
-
     return draft
 
 
@@ -108,73 +104,3 @@ def _extract_json_block(text: str) -> str:
         return blob
     except json.JSONDecodeError:
         return text
-
-
-def get_combined_prompt(platform: Platform, article: NormalizedArticle, **kwargs) -> str:
-    """Get the combined prompt for a platform that generates both summary and draft."""
-    # Use LinkedIn prompt for all platforms
-    return prompts.build_linkedin_prompt(article, "")
-
-
-def post_process(platform: Platform, body: str) -> str:
-    """Apply platform-specific post-processing to the draft body."""
-    # Use LinkedIn post-processing for all platforms
-    return prompts.post_process_linkedin(body)
-
-
-async def generate_draft_single_call(
-    session_or_store: Union[object, StateStore],
-    settings: Settings,
-    article: NormalizedArticle,
-    platform: Platform,
-    draft_id: str | None = None,
-) -> ContentDraft:
-    """Generate draft with a SINGLE LLM call (summary + platform content combined).
-    
-    This is more efficient than the two-call approach:
-    - 50% fewer LLM calls
-    - 50% faster generation
-    - 50% lower API costs
-    """
-    from datetime import UTC, datetime
-    
-    # Get combined prompt for platform
-    prompt = get_combined_prompt(platform, article)
-    
-    # Single LLM call
-    response = _complete(settings, system_prompts.GENERATOR_SYSTEM_PROMPT, prompt)
-    
-    # Parse JSON response
-    try:
-        # Try to extract JSON from the response
-        json_str = _extract_json_block(response)
-        data = json.loads(json_str)
-        summary = data.get("summary", "")
-        body = data.get("draft", response)
-    except (json.JSONDecodeError, KeyError):
-        # Fallback: use response as-is if JSON parsing fails
-        log.warning("Failed to parse JSON from LLM response, using raw response")
-        summary = response[:500]  # Use first 500 chars as summary
-        body = response
-    
-    # Apply platform-specific post-processing
-    body = post_process(platform, body)
-    
-    # Generate draft ID
-    did = draft_id or session_or_store.new_id("d_")
-    
-    # Create draft object
-    draft = ContentDraft(
-        id=did,
-        article_id=article.id,
-        platform=platform,
-        body=body,
-        summary=summary,
-        updated_at=datetime.now(UTC),
-    )
-    
-    # Save draft
-    session_or_store.upsert_draft(draft)
-    
-    log.info("Generated draft for %s using single LLM call (id=%s)", platform, did)
-    return draft

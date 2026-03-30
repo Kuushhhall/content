@@ -85,7 +85,9 @@ You are "Lawxy Times Reporter" — creating elite legal analysis for LinkedIn.
 Title: {article.title}
 Source: {article.source}
 URL: {article.url}
-Key Facts: {summary}
+{f"Image: {article.image_url}" if getattr(article, 'image_url', None) else ""}
+Full Content:
+{summary[:3000]}
 
 Write only the LinkedIn post body.
 """
@@ -138,24 +140,29 @@ Rules:
 
 Article:
 Title: {article.title}
+Source: {article.source}
 URL: {article.url}
 
-Summary:
-{summary}
+Full Content:
+{summary[:3000]}
 """
 
 
 def parse_reddit_title_body(generated: str) -> tuple[str, str]:
     """Extract title and body from the generated Reddit text."""
-    lines = generated.strip().splitlines()
+    all_lines = generated.strip().splitlines()
+    lines = [l for l in all_lines]
     title = "Legal update"
     if lines and lines[0].upper().startswith("TITLE:"):
-        title = lines[0].split(":", 1)[1].strip() or title
-        lines = lines[1:]
+        first_line = lines.pop(0)
+        title = first_line.split(":", 1)[1].strip() or title
+    
     while lines and not lines[0].strip():
-        lines = lines[1:]
+        lines.pop(0)
+        
     body = "\n".join(lines).strip()
-    return title[:300], body
+    clean_title = str(title)
+    return clean_title[:300], body
 
 
 # ============================================================================
@@ -232,8 +239,10 @@ You are "Lawxy Times Reporter" — creating professional long-form legal analysi
 ## ARTICLE CONTEXT:
 Title: {article.title}
 Source: {article.source}
-Court/Case: {getattr(article, 'court_name', 'Not specified')} {getattr(article, 'case_number', '')}
-Key Facts: {summary}
+URL: {article.url}
+{f"Featured Image: {article.image_url}" if getattr(article, 'image_url', None) else ""}
+Full Content:
+{summary[:3000]}
 
 Write the JSON output only.
 """
@@ -290,10 +299,12 @@ Rules:
 
 Article:
 Title: {article.title}
+Source: {article.source}
 URL: {article.url}
+{f"Image: {article.image_url}" if getattr(article, 'image_url', None) else ""}
 
-Summary:
-{summary}
+Full Content:
+{summary[:3000]}
 
 Write only the caption.
 """
@@ -331,8 +342,9 @@ Draft a sophisticated, long-form analytical piece for Medium. This is not a news
 
 ### SOURCE CONTEXT
 Article: {article.title} ({article.source})
-Base Intelligence:
-{summary}
+URL: {article.url}
+Full Content:
+{summary[:3000]}
 
 Output only the Markdown content."""
 
@@ -357,101 +369,71 @@ You are "Lawxy Times Reporter" — creating elite legal analysis threads for X (
 
 ### THREAD ARCHITECTURE (3-5 tweets total):
 
-**TWEET 1: NEWS HOOK**
-- Start with a sharp, factual statement of the legal development
-- Maximum impact, minimum words
-- Example: "SC: Digital privacy is now a fundamental right under Article 21."
+1. **NEWS HOOK (The Bombshell)**:
+- Lead with the most impactful legal development
+- Use strong, declarative language
+- Maximum shock value, minimum words
+- Example: "BREAKING: SC declares digital privacy fundamental right under Article 21"
+- Include 1 relevant hashtag
 
-**TWEET 2: CONTEXT & CLARIFICATION**
-- Provide essential context without over-explaining
-- Clarify what actually happened
+2. **CONTEXT & CLARIFICATION (The Setup)**:
+- Explain what this actually means in plain terms
+- Clarify the legal mechanism or precedent
 - Set up for deeper analysis
+- Example: "This means govt surveillance programs now face strict constitutional scrutiny"
 
-**TWEET 3: DEEPER IMPLICATIONS**
-- Move beyond surface-level analysis
+3. **DEEPER IMPLICATIONS (The Ripple Effect)**:
 - Reveal non-obvious consequences
-- Connect to broader legal trends
+- Connect to broader legal trends or patterns
+- Show second-order effects
+- Example: "Expect wave of challenges to Aadhaar, data retention laws, and surveillance tech"
 
-**TWEET 4: STRATEGIC INSIGHTS**
+4. **STRATEGIC INSIGHTS (The Game Changer)**:
 - What this means for legal practice
 - Compliance requirements or strategic adjustments
-- Real-world impact on clients or cases
+- Real-world impact on businesses and citizens
+- Example: "Law firms: Update privacy policies. Tech companies: Audit data practices. Citizens: Know your rights"
 
-**FINAL TWEET: DRIVE TO FRAMER**
-- Summarize the thread's key insight
-- Pose a thought-provoking question
+5. **FINAL TWEET: DRIVE TO FRAMER (The Deep Dive)**:
+- Summarize the thread's key insight in one sentence
+- Pose a thought-provoking question to engage readers
 - Include link to full Framer article for deeper analysis
-- Example: "For the full 1200-word analysis on what this means for digital rights in India, read: [Framer URL]"
+- Example: "What happens when privacy meets national security? For the full 1200-word analysis, read: [Framer URL]"
 
-## THREAD RULES:
-- **Increasing depth**: Each tweet should be more analytical than the previous
-- **Character limits**: Max 280 characters per tweet (be ruthless with editing)
-- **Hashtags**: Include 1-2 relevant hashtags in the thread
+## THREAD QUALITY RULES:
+- **Hook first**: Lead with maximum impact
+- **Progressive depth**: Each tweet reveals deeper insight
+- **Character limits**: Max 280 characters per tweet (edit ruthlessly)
+- **Hashtags**: Include 1-2 relevant hashtags (use sparingly)
 - **No repetition**: Each tweet adds new information
 - **No filler**: Every word must earn its place
-- **Momentum**: Thread should build intellectual momentum toward the Framer article
+- **Momentum**: Build intellectual momentum toward Framer article
+- **Engagement**: End with question or call to action
+
+## STYLE REQUIREMENTS:
+- **Voice**: Authoritative but accessible
+- **Tone**: Urgent but not alarmist
+- **Language**: Clear, direct, no jargon
+- **Pacing**: Fast, punchy, impactful
+- **Credibility**: Fact-based, no speculation
 
 ## FORMATTING:
 - Separate tweets with: ---
 - Include the Framer article URL in the final tweet
 - Use concise, punchy language
+- Start with strong verbs and declarative statements
+- **STRICT RULE**: DO NOT include labels like "TWEET 1" or "NEWS HOOK" in your output. Just output the content of the tweets.
 
 ## ARTICLE CONTEXT:
 Title: {article.title}
 Source: {article.source}
 URL: {article.url}
-Key Facts: {summary}
+Full Content:
+{summary[:3000]}
 
 {framer_context}
 
-Write the thread following the structure above.
-"""
-
-
-def build_x_combined_prompt(article: NormalizedArticle, framer_url: str = "") -> str:
-    """Build a SINGLE prompt that generates both summary AND X/Twitter thread with increasing depth.
-
-    Used by: pipeline.generate_draft_single_call() for platform='x'
-    """
-    framer_context = f"\nFramer Article URL (include in final tweet): {framer_url}" if framer_url else ""
-
-    return f"""
-{LAWXY_REPORTER_PERSONA}
-
-### THE ASSIGNMENT
-Analyze this legal article and create an X (Twitter) thread with increasing depth that drives to the Framer article.
-
-### OUTPUT FORMAT (JSON)
-Return a JSON object with exactly two fields:
-{{
-  "summary": "3-5 sentence summary capturing the key legal development, what it means, and why it matters",
-  "draft": "The tweet thread with increasing depth, separated by '---'"
-}}
-
-### THREAD ARCHITECTURE (3-5 tweets total):
-1. **Tweet 1: News Hook** - Sharp, factual statement of the legal development
-2. **Tweet 2: Context & Clarification** - Essential context without over-explaining
-3. **Tweet 3: Deeper Implications** - Non-obvious consequences and broader trends
-4. **Tweet 4: Strategic Insights** - Impact on legal practice and compliance
-5. **Final Tweet: Drive to Framer** - Summarize key insight + link to full article
-
-### THREAD RULES:
-- **Increasing depth**: Each tweet should be more analytical than the previous
-- **Character limits**: Max 280 characters per tweet
-- **Hashtags**: Include 1-2 relevant hashtags in the thread
-- **No repetition**: Each tweet adds new information
-- **Momentum**: Build intellectual momentum toward the Framer article
-- **Final tweet**: Must include Framer article URL and a thought-provoking question
-
-### ARTICLE TO ANALYZE
-Title: {article.title}
-Source: {article.source}
-URL: {article.url}
-Content:
-{article.full_content or article.summary_hint or article.raw_excerpt or "(no content available)"}
-{framer_context}
-
-Return ONLY the JSON object, no other text.
+Write the thread following the structure above. Focus on quality over quantity - make every tweet count.
 """
 
 
@@ -461,9 +443,10 @@ def split_x_thread(text: str) -> list[str]:
     out = [p for p in parts if p]
     result: list[str] = []
     for p in out:
-        if len(p) > 280:
-            p = p[:277] + "..."
-        result.append(p)
+        clean_p = str(p)
+        if len(clean_p) > 280:
+            clean_p = clean_p[:277] + "..."
+        result.append(clean_p)
     return result if result else [text.strip()[:280]]
 
 
@@ -517,7 +500,7 @@ Task:
 Generate a structured intelligence summary for this legal article:
 
 Title: {article_title}
-Content: {article_content[:2000]}
+Content: {str(article_content)[:2000]}
 
 Provide a concise summary (3-4 sentences) that covers the core legal issue, the decision, the significance, and the affected demographic.
 
@@ -538,7 +521,7 @@ Analyze this legal article as a precision analyst and provide structured metadat
 
 Title: {article_title}
 Summary Context: {article_summary}
-Content Extract: {article_content[:3000]}
+Content Extract: {str(article_content)[:3000]}
 
 Provide the following structured information in JSON format:
 1. Topic (1-3 words)

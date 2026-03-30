@@ -37,6 +37,9 @@ class ArticleOut(BaseModel):
     parties: list[str] = []
     jurisdiction: str = ""
     precedent_value: str = "medium"
+    selected: bool = False
+    image_url: str | None = None
+    full_content_fetched: bool = False
 
 
 class DraftGenerateIn(BaseModel):
@@ -74,6 +77,7 @@ class ScheduleOut(BaseModel):
     run_at: datetime
     status: str
     error: str | None = None
+    content_preview: str | None = None
 
 
 class PublishNowIn(BaseModel):
@@ -129,7 +133,7 @@ class PipelineModeOut(BaseModel):
 class PipelineRunOut(BaseModel):
     id: str
     started_at: str
-    finished_at: str
+    finished_at: str | None = None
     mode: str
     status: str
     articles_ingested: int
@@ -159,6 +163,14 @@ class BatchDraftOut(BaseModel):
 class AutoSelectOut(BaseModel):
     article_ids: list[str]
     articles: list[ArticleOut] = []
+
+
+class IngestOptionsIn(BaseModel):
+    days_back: int = 1
+    query: str = "Supreme Court India judgment"
+    max_results: int = 15
+    sources: list[str] | None = None
+    include_images: bool = True
 
 
 class ArticleUpdateIn(BaseModel):

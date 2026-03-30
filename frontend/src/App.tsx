@@ -12,7 +12,6 @@ import { PostScheduler } from './pages/PostScheduler'
 import { EngagementHub } from './pages/EngagementHub'
 import { Analytics } from './pages/Analytics'
 import { NewsSearchPage } from './pages/NewsSearchPage'
-import { ContentGenerationPage } from './pages/ContentGenerationPage'
 import { useUIStore } from './store/uiStore'
 
 const pageVariants = {
@@ -83,7 +82,6 @@ function App() {
                 <Route path="/engagement" element={<EngagementHub />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/news-search" element={<NewsSearchPage />} />
-                <Route path="/content-generation" element={<ContentGenerationPage />} />
               </Routes>
             </motion.div>
           </AnimatePresence>

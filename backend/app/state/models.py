@@ -12,7 +12,7 @@ from app.models.schedule import ScheduledPost
 class PipelineRunLog(BaseModel):
     id: str = ""
     started_at: str = ""
-    finished_at: str = ""
+    finished_at: str | None = None
     mode: str = "manual"
     steps: list[dict[str, Any]] = Field(default_factory=list)
     status: str = "idle"  # idle | running | completed | failed

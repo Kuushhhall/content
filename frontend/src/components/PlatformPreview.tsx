@@ -5,6 +5,7 @@ import {
   Plus, ExternalLink, Clapperboard
 } from 'lucide-react'
 import { PlatformIcon } from './PlatformIcon'
+import { Badge } from './Badge'
 
 interface PlatformPreviewProps {
   platform: string
@@ -62,23 +63,23 @@ export function PlatformPreview({ platform, content }: PlatformPreviewProps) {
 }
 
 function XPreview({ content }: { content: string }) {
-  const tweets = content.split('---').filter(t => t.trim())
+  const tweets = content.split('---').filter(t => t.trim()).map(t => {
+    // Strip LLM labels like "TWEET 1: NEWS HOOK" or "**TWEET 1**"
+    return t.replace(/^(\*\*?TWEET\s*\d+:?\s*[^**]*\*\*?|TWEET\s*\d+:?\s*[^\\n]*)/gi, '').trim()
+  })
   
   return (
     <div className="w-full max-w-2xl mx-auto space-y-0.5 font-sans bg-black border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
       {tweets.map((tweet, i) => (
         <div key={i} className="p-4 flex gap-3 relative hover:bg-white/[0.02] transition-colors overflow-hidden">
-          {/* Thread rail */}
           {i < tweets.length - 1 && (
             <div className="absolute left-9 top-14 bottom-0 w-0.5 bg-white/20" />
           )}
-          
           <div className="flex-shrink-0">
              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-volt to-amethyst p-0.5">
                <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-volt font-black text-xs italic">LX</div>
              </div>
           </div>
-          
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -87,9 +88,7 @@ function XPreview({ content }: { content: string }) {
               </div>
               <MoreHorizontal size={14} className="text-dim/40" />
             </div>
-            
-            <p className="mt-1 text-sm leading-normal text-silver/90 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{tweet.trim()}</p>
-            
+            <p className="mt-1 text-sm leading-normal text-silver/90 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{tweet}</p>
             <div className="mt-3 flex items-center justify-between text-dim/50 max-w-[90%]">
               <div className="flex items-center gap-1 hover:text-sky-400 transition-colors group/x">
                 <MessageCircle size={15} className="group-hover/x:-translate-x-0.5 transition-transform" />
@@ -121,51 +120,51 @@ function XPreview({ content }: { content: string }) {
 
 function LinkedInPreview({ content }: { content: string }) {
   return (
-    <div className="w-full max-w-2xl mx-auto bg-[#1b1b1b] border border-white/10 rounded-xl overflow-hidden font-sans shadow-2xl">
-      <div className="p-4 border-b border-white/5 flex items-center justify-between text-[10px] text-dim/60 font-bold tracking-widest uppercase">
-         <span>Top Insight</span>
-      </div>
-      
+    <div className="w-full max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl overflow-hidden font-sans shadow-xl text-slate-900 leading-normal">
       <div className="p-4">
-        <div className="flex items-start gap-3 mb-4">
-           <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-volt/80 via-volt to-volt/60 flex items-center justify-center text-void font-bold shadow-glow-volt/20">
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-void">
-               <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-             </svg>
+        <div className="flex items-start gap-2 mb-3">
+           <div className="h-12 w-12 rounded-full overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-100 flex items-center justify-center">
+             <div className="w-10 h-10 bg-[#FFDE42] rounded-full flex items-center justify-center text-[#1B0C0C] font-black text-xs italic">LX</div>
            </div>
-           <div>
-              <p className="text-sm font-bold text-white flex items-center gap-2">
-                Lawxy Times Reporter <span className="text-[10px] font-normal text-dim/60">• 1st</span>
-              </p>
-              <p className="text-[10px] text-dim/80 leading-tight">Elite Legal Analysis & Content OS</p>
-              <p className="text-[10px] text-dim/60 flex items-center gap-1 mt-0.5 px-1 py-0.5 rounded bg-white/5 w-fit">
+           <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <p className="text-sm font-bold truncate">Lawxy Times Reporter</p>
+                <span className="text-xs text-slate-500">• 1st</span>
+              </div>
+              <p className="text-[11px] text-slate-500 truncate leading-tight">Elite Legal Analysis & Content Intelligence OS</p>
+              <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                 Just now • <Eye size={10} />
               </p>
            </div>
+           <MoreHorizontal size={20} className="text-slate-400" />
         </div>
         
-        <p className="text-sm leading-relaxed text-silver/90 whitespace-pre-wrap mb-4 font-normal break-words [overflow-wrap:anywhere]">
+        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-4 font-normal break-words [overflow-wrap:anywhere] text-slate-800">
           {content}
         </p>
         
-        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+        <div className="flex items-center justify-between py-2 border-t border-slate-100">
            <div className="flex items-center -space-x-1">
-              <div className="h-4 w-4 rounded-full bg-sky-500 flex items-center justify-center text-white ring-2 ring-[#1b1b1b]"><ThumbsUp size={8} /></div>
-              <div className="h-4 w-4 rounded-full bg-red-500 flex items-center justify-center text-white ring-2 ring-[#1b1b1b]"><Heart size={8} /></div>
-              <div className="h-4 w-4 rounded-full bg-amber-500 flex items-center justify-center text-white ring-2 ring-[#1b1b1b]"><Plus size={8} /></div>
-              <span className="text-[10px] text-dim/80 ml-4 font-bold tracking-tight">242 Reactions</span>
+              <div className="h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center text-white ring-2 ring-white"><ThumbsUp size={8} /></div>
+              <div className="h-4 w-4 rounded-full bg-red-500 flex items-center justify-center text-white ring-2 ring-white"><Heart size={8} /></div>
+              <div className="h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center text-white ring-2 ring-white"><Plus size={8} /></div>
+              <span className="text-[11px] text-slate-500 ml-4 font-bold">242 Reactions</span>
            </div>
-           <span className="text-[10px] text-dim/80 font-bold tracking-tight underline">42 comments • 12 reposts</span>
+           <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+             <span>42 comments</span>
+             <span>•</span>
+             <span>12 reposts</span>
+           </div>
         </div>
         
-        <div className="mt-4 grid grid-cols-4 gap-2 pt-2 border-t border-white/5 text-dim/60">
+        <div className="mt-1 grid grid-cols-4 gap-1 pt-1 border-t border-slate-100 text-slate-500">
            {['Like', 'Comment', 'Repost', 'Send'].map(action => (
-             <div key={action} className="flex flex-col items-center gap-1 py-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
-               {action === 'Like' && <ThumbsUp size={16} />}
-               {action === 'Comment' && <MessageSquare size={16} />}
-               {action === 'Repost' && <Repeat size={16} />}
-               {action === 'Send' && <Send size={16} />}
-               <span className="text-[9px] font-black uppercase tracking-tighter">{action}</span>
+             <div key={action} className="flex items-center justify-center gap-2 py-2.5 hover:bg-slate-100 rounded-md transition-colors cursor-pointer font-semibold text-xs">
+               {action === 'Like' && <ThumbsUp size={18} />}
+               {action === 'Comment' && <MessageSquare size={18} />}
+               {action === 'Repost' && <Repeat size={18} />}
+               {action === 'Send' && <Send size={18} />}
+               <span>{action}</span>
              </div>
            ))}
         </div>
@@ -312,37 +311,148 @@ function InstagramPreview({ content }: { content: string }) {
   )
 }
 
-function FramerPreview({ content }: { content: string }) {
+function MarkdownText({ text }: { text: string }) {
+  const parts = text.split('\n')
   return (
-    <div className="w-full max-w-4xl mx-auto bg-[#000] border border-white/20 rounded-2xl overflow-hidden font-sans shadow-2xl group/web">
-       <div className="h-6 bg-white/5 flex items-center gap-1.5 px-4">
-          <div className="h-2 w-2 rounded-full bg-danger/60" />
-          <div className="h-2 w-2 rounded-full bg-amber/60" />
-          <div className="h-2 w-2 rounded-full bg-success/60" />
-          <div className="ml-4 h-3 flex-1 max-w-[120px] bg-white/10 rounded-full" />
+    <div className="space-y-4">
+      {parts.map((part, i) => {
+        if (part.startsWith('## ')) {
+          return <h2 key={i} className="text-2xl font-black text-white mt-8 mb-4 tracking-tight">{part.replace('## ', '')}</h2>
+        }
+        if (part.startsWith('### ')) {
+          return <h3 key={i} className="text-xl font-bold text-white mt-6 mb-3 tracking-tight">{part.replace('### ', '')}</h3>
+        }
+        if (part.startsWith('#### ')) {
+          return <h4 key={i} className="text-lg font-bold text-volt mt-4 mb-2 tracking-tight uppercase tracking-widest">{part.replace('#### ', '')}</h4>
+        }
+        if (part.startsWith('- ') || part.startsWith('* ')) {
+          return <li key={i} className="ml-4 list-disc text-[#E6E2D3]/80 mb-2">{part.substring(2)}</li>
+        }
+        if (!part.trim()) return <div key={i} className="h-4" />
+        
+        // Simple bold/italic parsing
+        const formattedPart = part
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+
+        return (
+          <p 
+            key={i} 
+            className="text-lg leading-relaxed text-[#E6E2D3]/90 font-sans"
+            dangerouslySetInnerHTML={{ __html: formattedPart }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function FramerPreview({ content }: { content: string }) {
+  let data = null
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      data = JSON.parse(jsonMatch[0])
+    }
+  } catch (e) {
+    console.error("Framer parse error", e)
+  }
+
+  if (!data) {
+    return (
+      <div className="p-8 border-2 border-dashed border-white/10 rounded-2xl text-center">
+        <p className="text-dim text-sm italic">Input valid Framer JSON to see structured preview...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full max-w-4xl mx-auto bg-[#0a0a0c] text-[#E6E2D3] font-serif shadow-2xl overflow-hidden rounded-2xl border border-white/10">
+       <div className="h-10 bg-[#16161a] flex items-center px-4 gap-2 border-b border-white/10">
+          <div className="flex gap-1.5">
+            <div className="h-3 w-3 rounded-full bg-[#ff5f57] shadow-sm" />
+            <div className="h-3 w-3 rounded-full bg-[#febc2e] shadow-sm" />
+            <div className="h-3 w-3 rounded-full bg-[#28c840] shadow-sm" />
+          </div>
+          <div className="flex-1 mx-4 h-6 bg-white/5 rounded-md flex items-center px-3 border border-white/5">
+            <span className="text-[10px] text-white/40 font-sans truncate">lawxy-times.framer.wiki/{data.slug_slug || 'preview'}</span>
+          </div>
        </div>
-       
-       <div className="p-10 space-y-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-volt/10 blur-[80px] group-hover/web:bg-volt/20 transition-all" />
-          
-          <h1 className="text-3xl font-black tracking-tighter text-silver leading-none">
-             Legal <span className="text-volt">Bulletin</span>
-          </h1>
-          
-          <div className="space-y-4">
-             <div className="h-1 w-12 bg-volt rounded-full" />
-             <p className="text-sm font-medium leading-relaxed text-dim/80 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-               {content}
-             </p>
+
+       <div className="p-12 md:p-20 space-y-16">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="h-px w-8 bg-volt" />
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-volt">Legislation Intelligence</span>
+            </div>
+            <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-[0.9] text-white max-w-4xl">
+               {data.title || 'Untitled Report'}
+            </h1>
           </div>
           
-          <div className="flex items-center gap-4">
-             <button className="px-6 py-2.5 rounded-full bg-volt text-void font-black text-xs uppercase tracking-widest shadow-glow-volt/10 hover:shadow-glow-volt/30 transition-all">
-                Read Narrative
-             </button>
-             <button className="p-2.5 rounded-full border border-white/10 text-silver hover:bg-white/5 transition-all">
-                <ExternalLink size={14} />
-             </button>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-16">
+             <div className="lg:col-span-3 space-y-12">
+                <div className="relative">
+                  <div className="absolute -left-8 top-0 bottom-0 w-1 bg-volt rounded-full opacity-50" />
+                  <p className="text-2xl font-medium leading-relaxed italic text-white/90">
+                    {data.excerpt || 'No excerpt provided.'}
+                  </p>
+                </div>
+                
+                <div className="prose-custom">
+                   <MarkdownText text={data.body_md || 'No body content.'} />
+                </div>
+             </div>
+             
+             <div className="space-y-10 pt-4">
+                <div className="p-8 bg-white/5 rounded-3xl border border-white/10 space-y-6 backdrop-blur-md">
+                   <h4 className="text-[10px] font-black uppercase tracking-widest text-silver/60">Intelligence Data</h4>
+                   <div className="space-y-5">
+                      <div className="flex flex-col gap-1">
+                         <span className="text-[9px] text-white/30 uppercase font-bold">Signal Strength</span>
+                         <div className="flex gap-1">
+                           {[1,2,3,4,5].map(i => <div key={i} className={`h-1 flex-1 rounded-full ${i <= 4 ? 'bg-volt' : 'bg-white/10'}`} />)}
+                         </div>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                         <span className="text-[9px] text-white/30 uppercase font-bold">Reading Complexity</span>
+                         <span className="text-xs font-bold text-silver">High-Level Strategic</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                         <span className="text-[9px] text-white/30 uppercase font-bold">Publishing Status</span>
+                         <Badge variant="success" className="w-fit mt-1">Ready for CMS</Badge>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="flex flex-col gap-2 p-4 border border-white/5 rounded-2xl">
+                   <span className="text-[8px] text-white/20 uppercase font-black">Source Authentication</span>
+                   <div className="flex items-center gap-2 text-[10px] text-volt truncate font-medium">
+                      <ExternalLink size={10} />
+                      <span className="truncate">Verified Legal Database</span>
+                   </div>
+                </div>
+             </div>
+          </div>
+
+          <div className="pt-16 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-8">
+             <div className="flex items-center gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-volt to-amethyst p-0.5 shadow-glow-volt/20">
+                  <div className="w-full h-full rounded-[0.9rem] bg-black flex items-center justify-center text-volt font-black text-xl italic">LX</div>
+                </div>
+                <div className="flex flex-col">
+                   <span className="text-lg font-black text-white tracking-tight">Lawxy Reporter</span>
+                   <span className="text-xs text-white/40 font-medium font-sans">Surgical Analytics Division • AI Integrated</span>
+                </div>
+             </div>
+             <div className="flex items-center gap-4">
+               <button className="px-5 py-3 rounded-xl border border-white/10 text-white font-bold text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all">
+                 Download JSON
+               </button>
+               <button className="px-10 py-4 bg-volt text-void font-black rounded-xl text-[11px] uppercase tracking-[0.2em] shadow-glow-volt/30 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                 Deploy to Framer
+               </button>
+             </div>
           </div>
        </div>
     </div>

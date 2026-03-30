@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Send,
@@ -25,7 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -38,21 +38,22 @@ import { Card } from '../components/Card'
 import { Badge } from '../components/Badge'
 import { Spinner } from '../components/Spinner'
 import { EmptyState } from '../components/EmptyState'
-import { PlatformIcon, PLATFORMS, getPlatformLabel } from '../components/PlatformIcon'
+import { PlatformIcon, getPlatformLabel } from '../components/PlatformIcon'
+import { PLATFORMS } from '../lib/platforms'
 import { PlatformPreview } from '../components/PlatformPreview'
 import { api } from '../lib/api'
 import { useUIStore } from '../store/uiStore'
 
-// Derive Platform type from PLATFORMS constant
-type Platform = typeof PLATFORMS[number]
+import type { Platform } from '../lib/platforms'
 
 // Helper: strip HTML tags for plain text preview
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '')
 
-// Workaround for TypeScript error: cast EditorContent to any
+// Workaround for TypeScript error: cast EditorContent to unknown component type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const EditorContentComponent = EditorContent as any
 
-function EditorToolbar({ editor, isDarkMode }: { editor: any; isDarkMode: boolean }) {
+function EditorToolbar({ editor, isDarkMode }: { editor: ReturnType<typeof useEditor>; isDarkMode: boolean }) {
   if (!editor) return null
 
   const toolbarButtons = [
@@ -103,9 +104,18 @@ function EditorToolbar({ editor, isDarkMode }: { editor: any; isDarkMode: boolea
 
 export function ContentStudio() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const isDarkMode = useUIStore(state => state.isDarkMode)
-  const { selectedArticleId, selectedDraftId, setSelectedDraftId } = useUIStore()
+  const { selectedArticleId, selectedDraftId, setSelectedDraftId, setSelectedArticleId } = useUIStore()
+
+  // Pre-select article from URL param (e.g. /studio?article_id=xxx)
+  useEffect(() => {
+    const id = searchParams.get('article_id')
+    if (id && id !== selectedArticleId) {
+      setSelectedArticleId(id)
+    }
+  }, [searchParams, selectedArticleId, setSelectedArticleId])
 
   const [platform, setPlatform] = useState<Platform>('linkedin')
   const [draftText, setDraftText] = useState('')
@@ -143,19 +153,19 @@ export function ContentStudio() {
     }
   }, [draftText, editor])
 
-  // Clear draft when switching platform
-  useEffect(() => {
+  // Clear draft when switching platform — use ref to detect changes without triggering setState in effect
+  const prevPlatformRef = useRef<Platform>(platform)
+  if (prevPlatformRef.current !== platform) {
+    prevPlatformRef.current = platform
     setDraftText('')
     setSelectedDraftId(null)
-    if (editor) {
-      editor.commands.setContent('')
-    }
-  }, [platform, editor])
+    // Editor content is cleared below in the effect that syncs draftText → editor
+  }
 
   // Queries
   const articleQuery = useQuery({
-    queryKey: ['articles'],
-    queryFn: () => api.listArticles(),
+    queryKey: ['articles', 'feed'],
+    queryFn: () => api.listArticles(1, 100, undefined, 'published_at', 'desc', true),
   })
   const selectedArticle = articleQuery.data?.items?.find((a) => a.id === selectedArticleId)
 

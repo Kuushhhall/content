@@ -19,7 +19,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/news', label: 'News Feed', icon: Newspaper },
   { path: '/news-search', label: 'News Search', icon: Search },
-  { path: '/content-generation', label: 'Content Generation', icon: PenTool },
+  { path: '/studio', label: 'Content Studio', icon: PenTool },
   { path: '/scheduler', label: 'Scheduler', icon: Calendar },
   { path: '/engagement', label: 'Engagement', icon: MessageSquare },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },

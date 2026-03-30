@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Code, Sparkles, Edit, Copy, RefreshCw } from 'lucide-react';
+import { Code, Sparkles, Edit, Copy, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { Card } from './Card';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { api } from '../lib/api';
 import type { Article, Draft, Platform } from '../types';
 import { PlatformIcon } from './PlatformIcon';
+import { PlatformPreview } from './PlatformPreview';
 
 interface ContentGenerationPanelProps {
   selectedArticle?: Article;
@@ -46,16 +47,14 @@ export const ContentGenerationPanel: React.FC<ContentGenerationPanelProps> = ({
   const [generatedDraft, setGeneratedDraft] = useState<Draft | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
+  const [viewMode, setViewMode] = useState<'content' | 'preview'>('content');
 
   const generateMutation = useMutation({
     mutationFn: () => {
       if (!selectedArticle) {
         throw new Error('No article selected');
       }
-      return api.generateDraft({
-        article_id: selectedArticle.id,
-        platform: selectedPlatform as Platform,
-      });
+      return api.generateDraft(selectedArticle.id, selectedPlatform as Platform);
     },
     onSuccess: (draft) => {
       setGeneratedDraft(draft);
@@ -69,10 +68,11 @@ export const ContentGenerationPanel: React.FC<ContentGenerationPanelProps> = ({
       if (!generatedDraft) {
         throw new Error('No draft to update');
       }
-      return api.updateDraft(generatedDraft.id, { body: content });
+      return api.updateDraft(generatedDraft.id, content);
     },
     onSuccess: (draft) => {
       setGeneratedDraft(draft);
+      setEditedContent(draft.body);
       onDraftUpdated?.(draft);
     },
   });
@@ -124,6 +124,18 @@ export const ContentGenerationPanel: React.FC<ContentGenerationPanelProps> = ({
   };
 
   const platformInfo = getPlatformSpecificInfo(selectedPlatform);
+
+  const formatContentForPreview = (content: string, platform: PlatformType) => {
+    if (platform === 'framer') {
+      try {
+        const parsed = JSON.parse(content);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return content;
+      }
+    }
+    return content;
+  };
 
   return (
     <div className="flex h-full flex-col space-y-6">
@@ -241,6 +253,15 @@ export const ContentGenerationPanel: React.FC<ContentGenerationPanelProps> = ({
               <Button
                 size="sm"
                 variant="ghost"
+                onClick={() => setViewMode(viewMode === 'content' ? 'preview' : 'content')}
+                disabled={generateMutation.isPending}
+              >
+                {viewMode === 'content' ? <Eye className="mr-1 h-3 w-3" /> : <EyeOff className="mr-1 h-3 w-3" />}
+                {viewMode === 'content' ? 'Preview' : 'Content'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 onClick={() => setIsEditing(!isEditing)}
                 disabled={updateMutation.isPending}
               >
@@ -268,7 +289,14 @@ export const ContentGenerationPanel: React.FC<ContentGenerationPanelProps> = ({
           </div>
 
           <div className="flex-1 overflow-hidden border border-border-primary rounded-lg bg-bg-primary">
-            {isEditing ? (
+            {viewMode === 'preview' ? (
+              <div className="h-full overflow-y-auto p-4">
+                <PlatformPreview 
+                  platform={selectedPlatform} 
+                  content={formatContentForPreview(generatedDraft.body, selectedPlatform)} 
+                />
+              </div>
+            ) : isEditing ? (
               <div className="h-full flex flex-col">
                 <textarea
                   value={editedContent}

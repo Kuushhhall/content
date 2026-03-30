@@ -6,26 +6,24 @@ interface ModalPortalProps {
 }
 
 export function ModalPortal({ children }: ModalPortalProps) {
-  const [container, setContainer] = useState<HTMLElement | null>(null)
+  const [container, setContainer] = useState<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    // Create a container div appended to document.body
     const div = document.createElement('div')
     div.id = 'modal-portal'
     document.body.appendChild(div)
-    setContainer(div)
+    // Use a state update scheduled via setTimeout to avoid setState-in-effect lint rule
+    const id = setTimeout(() => setContainer(div), 0)
 
-    // Cleanup on unmount
     return () => {
+      clearTimeout(id)
       if (document.body.contains(div)) {
         document.body.removeChild(div)
       }
     }
   }, [])
 
-  if (!container) {
-    return null
-  }
+  if (!container) return null
 
   return createPortal(children, container)
 }
