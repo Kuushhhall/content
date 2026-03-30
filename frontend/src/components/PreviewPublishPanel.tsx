@@ -207,13 +207,13 @@ export const PreviewPublishPanel: React.FC<PreviewPublishPanelProps> = ({
                   </div>
                 </div>
                 <div className="flex gap-2">
-                <Button
-                  onClick={() => setPreviewMode('full')}
-                  variant="ghost"
-                  className={`flex-1 ${previewMode === 'full' ? 'bg-volt text-ink' : ''}`}
-                >
-                  Full Preview
-                </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setIsScheduling(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
                   <Button
                     onClick={handleSchedule}
                     disabled={!scheduleDate}
