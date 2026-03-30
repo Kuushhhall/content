@@ -78,7 +78,7 @@ def _extract_date_from_content(content: str, title: str) -> datetime | None:
 def search_legal_news(
     settings: Settings,
     query: str = "Supreme Court India judgment",
-    search_depth: str = "basic",
+    search_depth: str = "advanced",
     max_results: int = 15,
     include_images: bool = True,
     include_domains: list[str] | None = None,
@@ -109,9 +109,11 @@ def search_legal_news(
         "api_key": settings.tavily_api_key,
         "query": query,
         "search_depth": search_depth,
+        "topic": "news",
         "include_answer": False,
         "max_results": max_results,
         "include_images": include_images,
+        "include_raw_content": True,
         "include_domains": domains,
     }
 
@@ -137,6 +139,7 @@ def search_legal_news(
         url = item.get("url") or ""
         title = item.get("title") or ""
         content = item.get("content") or ""
+        raw_content = item.get("raw_content") or ""
         if not url:
             continue
 
@@ -166,6 +169,8 @@ def search_legal_news(
         # Determine source from domain
         source = _domain_to_source(url)
 
+        # Prefer raw_content (full article text from Tavily) over snippet
+        full_text = raw_content or content
         out.append(
             NormalizedArticle(
                 id=aid,
@@ -175,7 +180,9 @@ def search_legal_news(
                 summary_hint=str(content)[:500],
                 published_at=published_at,
                 fetched_at=now,
-                raw_excerpt=content[:2000] if content else None,
+                raw_excerpt=full_text[:2000] if full_text else None,
+                full_content=full_text[:15000] if full_text else None,
+                full_content_fetched=bool(raw_content),
                 kind="tavily",
                 image_url=image_url,
             )

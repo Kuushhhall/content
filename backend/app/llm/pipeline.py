@@ -30,12 +30,11 @@ def _complete(settings: Settings, system_msg: str, user: str) -> str:
         raise ValueError("OpenAI API key not configured. Set OPENAI_API_KEY in your .env file.")
     client = _client(settings)
     resp = client.chat.completions.create(
-        model=settings.llm_model,
+        model=settings.llm_model or "",
         messages=[
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user},
         ],
-        temperature=0.3,
     )
     return (resp.choices[0].message.content or "").strip()
 
