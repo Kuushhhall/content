@@ -48,14 +48,17 @@ async def run_ingestion(
 
     # 4. Fetch full content for each article concurrently
     async def _fetch_content(article):
-        if not article.full_content:
-            content = await fetch_full_article_content(
-                article.url,
-                fallback=article.raw_excerpt or article.summary_hint or "",
-            )
-            if content:
-                article.full_content = content
-                article.full_content_fetched = True
+        # Skip if Tavily already provided full content
+        if article.full_content_fetched and article.full_content and len(article.full_content) > 200:
+            return article
+        # Fallback: use BeautifulSoup to scrape the article page
+        content = await fetch_full_article_content(
+            article.url,
+            fallback=article.raw_excerpt or article.summary_hint or "",
+        )
+        if content:
+            article.full_content = content
+            article.full_content_fetched = True
         return article
 
     articles = await asyncio.gather(*[_fetch_content(a) for a in articles])
