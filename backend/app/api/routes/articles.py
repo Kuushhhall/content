@@ -69,13 +69,7 @@ async def list_articles(
     }
 
 
-@router.get("/{article_id}", response_model=ArticleOut)
-async def get_article(article_id: str, store: StoreDep) -> ArticleOut:
-    a = store.get_article(article_id)
-    if not a:
-        raise HTTPException(status_code=404, detail="Article not found")
-    return ArticleOut.model_validate(a.model_dump())
-
+# --- Static routes BEFORE /{article_id} ---
 
 @router.post("/ingest", response_model=dict)
 async def trigger_ingest(
@@ -94,6 +88,106 @@ async def trigger_ingest(
         include_images=body.include_images,
     )
     return {"upserted": n}
+
+
+@router.post("/search", response_model=dict)
+async def search_news(body: SearchNewsIn, store: StoreDep, settings: SettingsDep) -> dict:
+    """Search for news via Tavily with filters. Results are NOT auto-saved."""
+    try:
+        articles = tavily_client.search_legal_news(
+            settings,
+            query=body.query,
+            search_depth=body.search_depth,
+            max_results=body.max_results,
+            include_images=body.include_images,
+            include_domains=body.sources,
+            days_back=body.days_back,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "items": [ArticleOut.model_validate(a.model_dump()) for a in articles],
+        "total": len(articles),
+    }
+
+
+@router.post("/select-batch", response_model=dict)
+async def select_batch_articles(body: SelectBatchIn, store: StoreDep) -> dict:
+    selected_count = 0
+    for article_id in body.article_ids:
+        article = store.get_article(article_id)
+        if article:
+            article.selected = True
+            store.upsert_article(article)
+            selected_count += 1
+    return {
+        "selected_count": selected_count,
+        "total_requested": len(body.article_ids),
+        "message": f"Selected {selected_count} of {len(body.article_ids)} articles",
+    }
+
+
+@router.post("/upsert-selected", response_model=dict)
+async def upsert_selected_articles(body: UpsertSelectedIn, store: StoreDep) -> dict:
+    """Save selected search results into the store (adds to NewsFeed)."""
+    from app.models.article import NormalizedArticle
+    from app.models.article import ContentIntelligence
+
+    upserted = 0
+    for article_data in body.articles:
+        ci_data = article_data.get("content_intelligence") or {}
+        ci = ContentIntelligence(
+            topic=ci_data.get("topic", ""),
+            legal_area=ci_data.get("legal_area", ""),
+            audience=ci_data.get("audience", []),
+            angle=ci_data.get("angle", ""),
+            complexity_level=ci_data.get("complexity_level", "intermediate"),
+            virality_score=ci_data.get("virality_score", 0.0),
+            relevance_score=ci_data.get("relevance_score", 0.0),
+            key_insights=ci_data.get("key_insights", []),
+            affected_parties=ci_data.get("affected_parties", []),
+            legal_implications=ci_data.get("legal_implications", []),
+            suggested_hashtags=ci_data.get("suggested_hashtags", []),
+        )
+        try:
+            article = NormalizedArticle(
+                id=article_data["id"],
+                source=article_data.get("source", "Tavily"),
+                title=article_data["title"],
+                url=article_data["url"],
+                summary_hint=article_data.get("summary_hint", ""),
+                published_at=article_data.get("published_at"),
+                raw_excerpt=article_data.get("raw_excerpt"),
+                kind=article_data.get("kind", "tavily"),
+                full_content=article_data.get("full_content", ""),
+                image_url=article_data.get("image_url"),
+                selected=True,
+                content_intelligence=ci,
+            )
+        except Exception:
+            continue
+
+        existing = store.get_article(article.id)
+        if existing is None:
+            store.upsert_article(article)
+            upserted += 1
+        else:
+            existing.selected = True
+            store.upsert_article(existing)
+            upserted += 1
+
+    return {"upserted": upserted}
+
+
+# --- Parameterized routes AFTER static routes ---
+
+@router.get("/{article_id}", response_model=ArticleOut)
+async def get_article(article_id: str, store: StoreDep) -> ArticleOut:
+    a = store.get_article(article_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return ArticleOut.model_validate(a.model_dump())
 
 
 @router.delete("/{article_id}", response_model=dict)
@@ -150,94 +244,3 @@ async def select_article(article_id: str, store: StoreDep) -> ArticleOut:
     article.selected = True
     store.upsert_article(article)
     return ArticleOut.model_validate(article.model_dump())
-
-
-@router.post("/select-batch", response_model=dict)
-async def select_batch_articles(body: SelectBatchIn, store: StoreDep) -> dict:
-    selected_count = 0
-    for article_id in body.article_ids:
-        article = store.get_article(article_id)
-        if article:
-            article.selected = True
-            store.upsert_article(article)
-            selected_count += 1
-    return {
-        "selected_count": selected_count,
-        "total_requested": len(body.article_ids),
-        "message": f"Selected {selected_count} of {len(body.article_ids)} articles",
-    }
-
-
-@router.post("/search", response_model=dict)
-async def search_news(body: SearchNewsIn, store: StoreDep, settings: SettingsDep) -> dict:
-    """Search for news via Tavily with filters. Results are NOT auto-saved."""
-    try:
-        articles = tavily_client.search_legal_news(
-            settings,
-            query=body.query,
-            search_depth=body.search_depth,
-            max_results=body.max_results,
-            include_images=body.include_images,
-            include_domains=body.sources,
-            days_back=body.days_back,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return {
-        "items": [ArticleOut.model_validate(a.model_dump()) for a in articles],
-        "total": len(articles),
-    }
-
-
-@router.post("/upsert-selected", response_model=dict)
-async def upsert_selected_articles(body: UpsertSelectedIn, store: StoreDep) -> dict:
-    """Save selected search results into the store (adds to NewsFeed)."""
-    from app.models.article import NormalizedArticle
-    from app.models.article import ContentIntelligence
-
-    upserted = 0
-    for article_data in body.articles:
-        ci_data = article_data.get("content_intelligence") or {}
-        ci = ContentIntelligence(
-            topic=ci_data.get("topic", ""),
-            legal_area=ci_data.get("legal_area", ""),
-            audience=ci_data.get("audience", []),
-            angle=ci_data.get("angle", ""),
-            complexity_level=ci_data.get("complexity_level", "intermediate"),
-            virality_score=ci_data.get("virality_score", 0.0),
-            relevance_score=ci_data.get("relevance_score", 0.0),
-            key_insights=ci_data.get("key_insights", []),
-            affected_parties=ci_data.get("affected_parties", []),
-            legal_implications=ci_data.get("legal_implications", []),
-            suggested_hashtags=ci_data.get("suggested_hashtags", []),
-        )
-        try:
-            article = NormalizedArticle(
-                id=article_data["id"],
-                source=article_data.get("source", "Tavily"),
-                title=article_data["title"],
-                url=article_data["url"],
-                summary_hint=article_data.get("summary_hint", ""),
-                published_at=article_data.get("published_at"),
-                raw_excerpt=article_data.get("raw_excerpt"),
-                kind=article_data.get("kind", "tavily"),
-                full_content=article_data.get("full_content", ""),
-                image_url=article_data.get("image_url"),
-                selected=True,
-                content_intelligence=ci,
-            )
-        except Exception as e:
-            continue
-
-        existing = store.get_article(article.id)
-        if existing is None:
-            store.upsert_article(article)
-            upserted += 1
-        else:
-            # Mark existing as selected
-            existing.selected = True
-            store.upsert_article(existing)
-            upserted += 1
-
-    return {"upserted": upserted}

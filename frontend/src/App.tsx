@@ -9,7 +9,6 @@ import { Dashboard } from './pages/Dashboard'
 import { NewsFeed } from './pages/NewsFeed'
 import { ContentStudio } from './pages/ContentStudio'
 import { PostScheduler } from './pages/PostScheduler'
-import { EngagementHub } from './pages/EngagementHub'
 import { Analytics } from './pages/Analytics'
 import { NewsSearchPage } from './pages/NewsSearchPage'
 import { useUIStore } from './store/uiStore'
@@ -79,7 +78,6 @@ function App() {
                 <Route path="/news" element={<NewsFeed />} />
                 <Route path="/studio" element={<ContentStudio />} />
                 <Route path="/scheduler" element={<PostScheduler />} />
-                <Route path="/engagement" element={<EngagementHub />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/news-search" element={<NewsSearchPage />} />
               </Routes>
