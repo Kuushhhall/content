@@ -57,7 +57,6 @@ export function Dashboard() {
     onError: (err) => toast.error((err as Error).message),
   })
 
-  const mode = pipelineStatus?.mode ?? status?.pipelineMode ?? 'manual'
   const currentRun = pipelineStatus?.current_run
   const recentRuns = pipelineStatus?.recent_runs ?? []
 

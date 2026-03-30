@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Send,
@@ -153,14 +153,9 @@ export function ContentStudio() {
     }
   }, [draftText, editor])
 
-  // Clear draft when switching platform — use ref to detect changes without triggering setState in effect
-  const prevPlatformRef = useRef<Platform>(platform)
-  if (prevPlatformRef.current !== platform) {
-    prevPlatformRef.current = platform
-    setDraftText('')
-    setSelectedDraftId(null)
-    // Editor content is cleared below in the effect that syncs draftText → editor
-  }
+  // Clear draft when switching platform
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setDraftText(''); setSelectedDraftId(null); editor?.commands.setContent('') }, [platform])
 
   // Queries
   const articleQuery = useQuery({
