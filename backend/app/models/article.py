@@ -47,3 +47,4 @@ class NormalizedArticle(BaseModel):
     selected: bool = False
     image_url: str | None = None
     full_content_fetched: bool = False
+    tags: List[str] = Field(default_factory=list)

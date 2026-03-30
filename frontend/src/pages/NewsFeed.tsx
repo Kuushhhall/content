@@ -309,6 +309,22 @@ interface FeedCardProps {
   isDeleting: boolean;
 }
 
+const TAG_STYLES: Record<string, string> = {
+  hot: 'bg-red-500/20 text-red-400 border-red-500/30',
+  breaking: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  landmark: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  recent: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+}
+
+const ArticleTag: React.FC<{ tag: string }> = ({ tag }) => {
+  const style = TAG_STYLES[tag] ?? 'bg-gray-700/50 text-gray-400 border-gray-600/30'
+  return (
+    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${style}`}>
+      {tag}
+    </span>
+  )
+}
+
 const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, onDelete, onGenerate, isDeleting }) => {
   const virality = article.content_intelligence?.virality_score ?? 0;
   const viralityPct = Math.round(virality * 100);
@@ -345,6 +361,9 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
                 <Flame className="w-3 h-3" />{viralityPct}%
               </span>
             )}
+            {(article.tags ?? []).map(tag => (
+              <ArticleTag key={tag} tag={tag} />
+            ))}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
@@ -399,6 +418,9 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
               <Flame className="w-3 h-3" />{viralityPct}%
             </span>
           )}
+          {(article.tags ?? []).map(tag => (
+            <ArticleTag key={tag} tag={tag} />
+          ))}
         </div>
         <div className="flex gap-2 mt-3 pt-2 border-t border-gray-800 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
           <button

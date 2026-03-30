@@ -257,7 +257,7 @@ const LinkedInPreview: React.FC<{ content: string }> = ({ content }) => {
             <p className="text-xs text-gray-500 mt-1">Just now • 🌎</p>
           </div>
         </div>
-        <div className="text-gray-900 whitespace-pre-wrap leading-relaxed">
+        <div className="text-gray-900 whitespace-pre-wrap leading-relaxed space-y-4">
           {content}
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between text-gray-600">

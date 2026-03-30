@@ -96,36 +96,53 @@ def deduplicate_articles(articles: List) -> List:
 
 
 def score_articles_for_virality(articles: List) -> List:
-    """Score articles 0.0–1.0 based on keywords, recency, source credibility."""
-    virality_keywords = [
-        'supreme court', 'high court', 'judgment', 'ruling', 'landmark', 'historic',
-        'controversial', 'breaking', 'constitution', 'article 21', 'fundamental right',
-        'government', 'policy', 'regulation', 'law', 'act', 'bill', 'amendment',
-        'fraud', 'corruption', 'arrest', 'bail', 'acquittal', 'conviction',
+    """Score articles 0.0–1.0 and assign tags based on keywords, recency, source credibility."""
+    landmark_keywords = ['landmark', 'historic', 'constitution', 'article 21', 'fundamental right', 'precedent', 'overruled']
+    breaking_keywords = ['breaking', 'just in', 'urgent', 'exclusive', 'flash']
+    hot_keywords = ['controversial', 'heated', 'debate', 'outrage', 'viral', 'trending', 'protest', 'backlash']
+    legal_keywords = [
+        'supreme court', 'high court', 'judgment', 'ruling', 'government', 'policy',
+        'regulation', 'law', 'act', 'bill', 'amendment', 'fraud', 'corruption',
+        'arrest', 'bail', 'acquittal', 'conviction', 'fir', 'petition', 'bench',
     ]
-    high_cred_sources = {'LiveLaw', 'Bar and Bench', 'SCC Online', 'Supreme Court', 'Indian Kanoon'}
+    high_cred_sources = {'LiveLaw', 'Bar and Bench', 'SCC Online', 'Supreme Court', 'Indian Kanoon', 'ET Legal'}
 
     for article in articles:
         score = 0.0
+        tags: list[str] = []
         content_lower = (article.title + ' ' + (article.summary_hint or '')).lower()
 
         # Source credibility
         if article.source in high_cred_sources:
             score += 0.3
 
-        # Keyword match
-        for kw in virality_keywords:
+        # Legal keyword match
+        for kw in legal_keywords:
             if kw in content_lower:
                 score += 0.05
+
+        # Tag: landmark
+        if any(kw in content_lower for kw in landmark_keywords):
+            tags.append('landmark')
+            score += 0.15
+
+        # Tag: breaking
+        if any(kw in content_lower for kw in breaking_keywords):
+            tags.append('breaking')
+            score += 0.2
+
+        # Tag: hot
+        if any(kw in content_lower for kw in hot_keywords):
+            tags.append('hot')
+            score += 0.1
 
         # Title length optimum (40–70 chars)
         if 40 <= len(article.title) <= 70:
             score += 0.1
 
-        # Recency bonus
+        # Recency bonus + tag
         if article.published_at:
             try:
-                from datetime import UTC
                 now = datetime.now(UTC)
                 pa = article.published_at
                 if pa.tzinfo is None:
@@ -133,13 +150,18 @@ def score_articles_for_virality(articles: List) -> List:
                 hours_old = (now - pa).total_seconds() / 3600
                 if hours_old < 6:
                     score += 0.3
+                    tags.append('recent')
                 elif hours_old < 24:
                     score += 0.2
+                    tags.append('recent')
                 elif hours_old < 72:
                     score += 0.1
             except Exception:
                 pass
 
         article.content_intelligence.virality_score = min(max(score, 0.0), 1.0)
+        # Only assign tags if we found meaningful ones
+        if tags:
+            article.tags = list(dict.fromkeys(tags))  # deduplicate, preserve order
 
     return articles

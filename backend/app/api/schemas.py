@@ -40,6 +40,7 @@ class ArticleOut(BaseModel):
     selected: bool = False
     image_url: str | None = None
     full_content_fetched: bool = False
+    tags: list[str] = []
 
 
 class DraftGenerateIn(BaseModel):

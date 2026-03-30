@@ -47,6 +47,7 @@ export type Article = {
   selected: boolean
   image_url: string | null
   full_content_fetched: boolean
+  tags: string[]
 }
 
 export type Draft = {

@@ -30,14 +30,40 @@ def publish(draft: ContentDraft, settings: Settings) -> PublishResult:
     # Parse draft body — could be JSON (from LLM) or plain text
     try:
         fields = json.loads(draft.body)
-    except json.JSONDecodeError:
+        log.info(f"Successfully parsed JSON for draft {draft.id}, fields: {list(fields.keys())}")
+    except json.JSONDecodeError as e:
+        log.warning(f"Failed to parse JSON for draft {draft.id}: {e}")
         fields = {}
 
-    title = fields.get("title", "Legal Update")
-    slug_raw = fields.get("slug_slug") or fields.get("slug") or title
-    slug = slug_raw.lower().replace(" ", "-").replace("'", "")[:80]
-    excerpt = fields.get("excerpt", draft.body[:200])
-    content = fields.get("body_md") or fields.get("content") or fields.get("body") or draft.body
+    # Enhanced field extraction with better fallbacks
+    title = fields.get("title") or fields.get("Title") or "Legal Update"
+    slug_raw = fields.get("slug_slug") or fields.get("slug") or fields.get("Slug") or title
+    slug = slug_raw.lower().replace(" ", "-").replace("'", "").replace("/", "-").replace(":", "-")[:80]
+    
+    # Extract excerpt with multiple fallback options
+    excerpt = (
+        fields.get("excerpt") or 
+        fields.get("excerpt") or 
+        fields.get("Excerpt") or 
+        fields.get("summary") or 
+        fields.get("Summary") or 
+        draft.body[:200] if draft.body else "Legal analysis content"
+    )
+    
+    # Extract content with multiple fallback options, prioritizing markdown
+    content = (
+        fields.get("body_md") or 
+        fields.get("body_md") or 
+        fields.get("Body_md") or 
+        fields.get("content") or 
+        fields.get("Content") or 
+        fields.get("body") or 
+        fields.get("Body") or 
+        draft.body or 
+        "Content not available"
+    )
+    
+    log.info(f"Extracted fields for Framer: title='{title[:50]}...', slug='{slug}', excerpt='{excerpt[:100]}...'")
 
     # Build payload with Framer Internal Field IDs
     payload = {
@@ -57,6 +83,14 @@ def publish(draft: ContentDraft, settings: Settings) -> PublishResult:
         project_url = f"https://framer.com/projects/{project_url}"
 
     try:
+        # Validate payload before sending to bridge
+        if not payload.get("title") or not payload.get("content"):
+            return PublishResult(
+                platform="framer", success=False,
+                message="Missing required fields: title and content are required"
+            )
+        
+        log.info(f"Sending payload to Framer bridge for draft {draft.id}")
         result = subprocess.run(
             [
                 "node", str(BRIDGE_SCRIPT),
@@ -69,27 +103,48 @@ def publish(draft: ContentDraft, settings: Settings) -> PublishResult:
         )
 
         stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+        
         if not stdout:
+            error_msg = stderr or "No output from bridge"
+            log.error(f"Framer bridge failed for draft {draft.id}: {error_msg}")
             return PublishResult(
                 platform="framer", success=False,
-                message=result.stderr.strip() or "No output from bridge",
+                message=error_msg,
             )
 
-        data = json.loads(stdout)
+        try:
+            data = json.loads(stdout)
+        except json.JSONDecodeError as e:
+            log.error(f"Invalid JSON response from Framer bridge for draft {draft.id}: {e}")
+            return PublishResult(
+                platform="framer", success=False,
+                message=f"Invalid JSON response from bridge: {e}",
+                raw={"stdout": stdout, "stderr": stderr}
+            )
+        
         if data.get("success"):
+            log.info(f"Framer publish successful for draft {draft.id}, external_id: {data.get('id')}")
             return PublishResult(
                 platform="framer", success=True,
                 external_id=data.get("id", str(uuid.uuid4())),
                 raw=data,
             )
-        return PublishResult(platform="framer", success=False, message=data.get("error", "Unknown"), raw=data)
+        else:
+            error_msg = data.get("error", "Unknown error from Framer bridge")
+            log.error(f"Framer publish failed for draft {draft.id}: {error_msg}")
+            return PublishResult(
+                platform="framer", success=False, 
+                message=error_msg, 
+                raw=data
+            )
 
     except subprocess.TimeoutExpired:
+        log.error(f"Framer bridge timed out for draft {draft.id}")
         return PublishResult(platform="framer", success=False, message="Bridge timed out (60s)")
-    except json.JSONDecodeError as e:
-        return PublishResult(platform="framer", success=False, message=f"Invalid JSON from bridge: {e}")
     except FileNotFoundError:
+        log.error(f"Node.js not found for Framer bridge")
         return PublishResult(platform="framer", success=False, message="Node.js not found")
     except Exception as e:
-        log.exception("Framer publish failed")
+        log.exception(f"Unexpected error in Framer publish for draft {draft.id}")
         return PublishResult(platform="framer", success=False, message=str(e))

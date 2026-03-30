@@ -367,6 +367,22 @@ interface ArticleCardProps {
   layout: 'grid' | 'list';
 }
 
+const TAG_STYLES: Record<string, string> = {
+  hot: 'bg-red-500/20 text-red-400 border-red-500/30',
+  breaking: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  landmark: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  recent: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+}
+
+const ArticleTag: React.FC<{ tag: string }> = ({ tag }) => {
+  const style = TAG_STYLES[tag] ?? 'bg-gray-700/50 text-gray-400 border-gray-600/30'
+  return (
+    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${style}`}>
+      {tag}
+    </span>
+  )
+}
+
 const ArticleCard: React.FC<ArticleCardProps> = ({ article, selected, onToggle, layout }) => {
   const virality = article.content_intelligence?.virality_score ?? 0;
   const viralityPct = Math.round(virality * 100);
@@ -409,6 +425,9 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, selected, onToggle, 
                 <Flame className="w-3 h-3" />{viralityPct}%
               </span>
             )}
+            {(article.tags ?? []).map(tag => (
+              <ArticleTag key={tag} tag={tag} />
+            ))}
           </div>
           {article.summary_hint && (
             <p className="text-xs text-gray-400 mt-1 line-clamp-2">{article.summary_hint}</p>
@@ -464,6 +483,9 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, selected, onToggle, 
               <Flame className="w-3 h-3" />{viralityPct}%
             </span>
           )}
+          {(article.tags ?? []).map(tag => (
+            <ArticleTag key={tag} tag={tag} />
+          ))}
         </div>
         <a
           href={article.url}
