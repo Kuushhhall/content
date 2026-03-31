@@ -16,6 +16,7 @@ dependencies = [
     "praw>=7.7.1",
     "python-multipart>=0.0.12",
     "openai>=1.55.0",
+    "markdown>=3.5",
 ]
 
 [project.optional-dependencies]

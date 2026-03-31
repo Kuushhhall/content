@@ -11,6 +11,8 @@ import {
   ArrowRight,
   Bot,
   Activity as ActivityIcon,
+  StopCircle,
+  Globe,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -19,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card } from '../components/Card'
 import { Badge } from '../components/Badge'
 import { Spinner } from '../components/Spinner'
+import { PipelineMonitor } from '../components/PipelineMonitor'
 import { api } from '../lib/api'
 import { useStatusSocket } from '../hooks/useStatusSocket'
 import { useUIStore } from '../store/uiStore'
@@ -49,15 +52,40 @@ export function Dashboard() {
     onSuccess: async (run) => {
       await queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })
       if (run.status === 'completed') {
-        toast.success(`Neural scan complete. System synchronized.`)
+        toast.success(`Pipeline complete. Drafts saved.`)
       } else if (run.status === 'failed') {
-        toast.error(`Neural link severed: ${run.error ?? 'Unknown interference'}`)
+        toast.error(`Pipeline failed: ${run.error ?? 'Unknown error'}`)
       }
     },
     onError: (err) => toast.error((err as Error).message),
   })
 
-  const currentRun = pipelineStatus?.current_run
+  const runFramerMutation = useMutation({
+    mutationFn: api.runFramerPipeline,
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })
+      if (result.status === 'completed') {
+        toast.success(`Framer pipeline complete. Draft saved to CMS.`)
+      } else if (result.status === 'failed') {
+        toast.error(`Framer pipeline failed: ${result.error ?? 'Unknown error'}`)
+      }
+    },
+    onError: (err) => toast.error((err as Error).message),
+  })
+
+  const cancelPipelineMutation = useMutation({
+    mutationFn: (runId: string) => api.cancelPipeline(runId),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success('Pipeline stopping...')
+      } else {
+        toast.error(result.message)
+      }
+    },
+    onError: (err) => toast.error((err as Error).message),
+  })
+
+  const currentRun = status?.currentRun || pipelineStatus?.current_run
   const recentRuns = pipelineStatus?.recent_runs ?? []
 
   return (
@@ -85,28 +113,82 @@ export function Dashboard() {
 
           </div>
 
-          <div className="flex flex-wrap items-center gap-8">
+          <div className="flex flex-wrap items-center gap-4">
             <button
               onClick={() => runPipelineMutation.mutate()}
-              disabled={runPipelineMutation.isPending || !!currentRun}
-              className="btn-primary group h-16 px-12 text-lg font-black shadow-glow-volt/20 rounded-[1.5rem]"
+              disabled={runPipelineMutation.isPending || runFramerMutation.isPending || !!currentRun}
+              className="btn-primary group h-16 px-10 text-lg font-black shadow-glow-volt/20 rounded-[1.5rem]"
             >
-              {runPipelineMutation.isPending || currentRun ? (
+              {runPipelineMutation.isPending ? (
                 <div className="flex items-center gap-3">
                   <Spinner size={24} />
-                  <span>Processing...</span>
+                  <span>Running...</span>
                 </div>
               ) : (
                 <>
-                  <Play size={24} className="fill-current group-hover:scale-110 transition-transform" />
-                  <span className="ml-2 uppercase tracking-widest">Run Pipeline</span>
-                  <ArrowRight size={20} className="ml-3 opacity-0 -translate-x-2 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                  <Play size={22} className="fill-current group-hover:scale-110 transition-transform" />
+                  <span className="ml-2 uppercase tracking-widest text-base">All Platforms</span>
                 </>
               )}
             </button>
+            <button
+              onClick={() => runFramerMutation.mutate()}
+              disabled={runPipelineMutation.isPending || runFramerMutation.isPending || !!currentRun}
+              className="group h-16 px-10 text-lg font-black rounded-[1.5rem] border-2 border-amethyst/40 bg-amethyst/10 text-amethyst hover:bg-amethyst/20 hover:border-amethyst/60 transition-all disabled:opacity-50"
+            >
+              {runFramerMutation.isPending ? (
+                <div className="flex items-center gap-3">
+                  <Spinner size={22} />
+                  <span>Running...</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Globe size={22} />
+                  <span className="uppercase tracking-widest text-base">Framer CMS</span>
+                </div>
+              )}
+            </button>
+            {currentRun && currentRun.status === 'running' && (
+              <button
+                onClick={() => cancelPipelineMutation.mutate(currentRun.id)}
+                disabled={cancelPipelineMutation.isPending}
+                className="h-16 px-8 font-black text-lg rounded-[1.5rem] border-2 border-error/40 bg-error/10 text-error hover:bg-error/20 hover:border-error/60 transition-all disabled:opacity-50"
+              >
+                {cancelPipelineMutation.isPending ? (
+                  <div className="flex items-center gap-2">
+                    <Spinner size={20} />
+                    <span>Stopping...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <StopCircle size={20} />
+                    <span>Stop Pipeline</span>
+                  </div>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </section>
+
+      {/* Real-time pipeline progress */}
+      <AnimatePresence>
+        {currentRun && currentRun.status === 'running' && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`rounded-[2rem] border p-8 backdrop-blur-3xl ${
+              isDarkMode
+                ? 'border-volt/40 bg-volt/5'
+                : 'border-volt/30 bg-volt/10 shadow-2xl shadow-volt/10'
+            }`}
+          >
+            <h2 className="text-2xl font-bold mb-6 text-text-primary">Pipeline in Progress</h2>
+            <PipelineMonitor run={currentRun} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Quick stats grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -182,11 +264,15 @@ export function Dashboard() {
                       className={`group flex items-center gap-6 rounded-[2rem] p-5 transition-all border border-transparent hover:surface-stellar`}
                     >
                       <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${
-                        run.status === 'completed' ? 'border-success/30 bg-success/10 text-success' : 
-                        run.status === 'failed' ? 'border-danger/30 bg-danger/10 text-danger' : 'border-volt/30 bg-volt/10 text-volt'
+                        run.status === 'completed' ? 'border-success/30 bg-success/10 text-success' :
+                        run.status === 'failed' ? 'border-danger/30 bg-danger/10 text-danger' :
+                        run.status === 'cancelled' ? 'border-warning/30 bg-warning/10 text-warning' :
+                        'border-volt/30 bg-volt/10 text-volt'
                       }`}>
-                        {run.status === 'completed' ? <CheckCircle2 size={24} /> : 
-                         run.status === 'failed' ? <XCircle size={24} /> : <Spinner size={24} />}
+                        {run.status === 'completed' ? <CheckCircle2 size={24} /> :
+                         run.status === 'failed' ? <XCircle size={24} /> :
+                         run.status === 'cancelled' ? <XCircle size={24} /> :
+                         <Spinner size={24} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
@@ -202,7 +288,12 @@ export function Dashboard() {
                         </div>
                       </div>
                       <div className="text-right hidden sm:block">
-                        <span className="text-[10px] font-black text-muted/40 block mb-1 uppercase">COMPLETED</span>
+                        <span className={`text-[10px] font-black block mb-1 uppercase ${
+                          run.status === 'completed' ? 'text-success' :
+                          run.status === 'failed' ? 'text-danger' :
+                          run.status === 'cancelled' ? 'text-warning' :
+                          'text-volt'
+                        }`}>{run.status}</span>
                         <span className="text-xs font-black text-muted">
                           {run.started_at ? new Date(run.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                         </span>

@@ -11,6 +11,7 @@ import { ContentStudio } from './pages/ContentStudio'
 import { PostScheduler } from './pages/PostScheduler'
 import { Analytics } from './pages/Analytics'
 import { NewsSearchPage } from './pages/NewsSearchPage'
+import CostTracker from './pages/CostTracker'
 import { useUIStore } from './store/uiStore'
 
 const pageVariants = {
@@ -79,6 +80,7 @@ function App() {
                 <Route path="/studio" element={<ContentStudio />} />
                 <Route path="/scheduler" element={<PostScheduler />} />
                 <Route path="/analytics" element={<Analytics />} />
+                <Route path="/costs" element={<CostTracker />} />
                 <Route path="/news-search" element={<NewsSearchPage />} />
               </Routes>
             </motion.div>

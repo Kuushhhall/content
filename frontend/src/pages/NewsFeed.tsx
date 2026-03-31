@@ -57,8 +57,8 @@ export function NewsFeed() {
   const [ingestQuery, setIngestQuery] = useState('Supreme Court India judgment');
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['articles', 'feed'],
-    queryFn: () => api.listArticles(1, 100, undefined, sortBy, 'desc', true),
+    queryKey: ['articles', 'feed', sortBy],
+    queryFn: () => api.listArticles(1, 100, undefined, sortBy, 'desc', false),
     refetchInterval: 30000,
   });
 

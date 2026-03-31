@@ -1,4 +1,4 @@
-export type TabKey = 'dashboard' | 'news' | 'studio' | 'scheduler' | 'engagement' | 'analytics'
+export type TabKey = 'dashboard' | 'news' | 'studio' | 'scheduler' | 'engagement' | 'analytics' | 'costs'
 
 export type Platform = 'linkedin' | 'x' | 'reddit' | 'framer' | 'medium' | 'instagram'
 
@@ -95,6 +95,33 @@ export type AnalyticsOverview = {
   by_platform: Record<string, number>
 }
 
+export type PipelineStep = {
+  step: string
+  status: 'idle' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled'
+  at: string
+  duration?: number
+  count?: number
+  selected?: string[]
+  error?: string
+  reason?: string
+}
+
+export type PipelineRun = {
+  id: string
+  started_at: string
+  finished_at: string | null
+  updated_at: string
+  mode: string
+  status: 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled'
+  cancelled: boolean
+  cancellation_reason: string | null
+  articles_ingested: number
+  drafts_generated: number
+  posts_published: number
+  error: string | null
+  steps: PipelineStep[]
+}
+
 export type StatusFeed = {
   at: string
   articles: number
@@ -104,20 +131,7 @@ export type StatusFeed = {
   autoReplyEnabled: boolean
   pipelineMode: string
   pipelineRunning: boolean
-}
-
-// Pipeline types
-export type PipelineRun = {
-  id: string
-  started_at: string
-  finished_at: string
-  mode: string
-  status: string
-  articles_ingested: number
-  drafts_generated: number
-  posts_published: number
-  error: string | null
-  steps: Array<{ step: string; status: string; at?: string; count?: number; reason?: string }>
+  currentRun: PipelineRun | null
 }
 
 export type PipelineStatus = {
@@ -130,6 +144,28 @@ export type BatchDraftResult = {
   article_id: string
   drafts: Draft[]
   errors: string[]
+}
+
+export type CostRecord = {
+  id: string
+  at: string
+  pipeline_run_id: string
+  api: string
+  model: string
+  call_type: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  cost_usd: number
+  cost_inr: number
+}
+
+export type CostSummary = {
+  total_usd: number
+  total_inr: number
+  total_calls: number
+  by_api: Record<string, { cost_usd: number; cost_inr: number; calls: number }>
+  by_model: Record<string, { cost_usd: number; cost_inr: number; calls: number }>
 }
 
 export type AutoSelectResult = {

@@ -185,3 +185,16 @@ class ArticleUpdateIn(BaseModel):
     parties: list[str] | None = None
     jurisdiction: str | None = None
     precedent_value: Literal["high", "medium", "low"] | None = None
+
+
+
+class FramerPipelineOut(BaseModel):
+    run_id: str
+    status: str  # "completed" | "failed"
+    article_id: str | None = None
+    article_title: str | None = None
+    article_url: str | None = None
+    draft_id: str | None = None
+    framer_item_id: str | None = None
+    steps: list[dict] = Field(default_factory=list)
+    error: str | None = None

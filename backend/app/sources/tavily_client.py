@@ -16,20 +16,17 @@ TAVILY_SEARCH_URL = "https://api.tavily.com/search"
 LEGAL_SOURCES = [
     "livelaw.in",
     "barandbench.com",
-    "scconline.com",
-    "indiankanoon.org",
-    "supremecourtofindia.nic.in",
-    "economictimes.indiatimes.com",
-    "lawstreet.in",
-    "verdictum.in",
-    "latestlaws.com",
-    "legalserviceindia.com",
-    "thehindu.com",
-    "ndtv.com",
-    "hindustantimes.com",
-    "theprint.in",
-    "scroll.in",
+    "etlegal.com",
+    "indialegal.in",
 ]
+
+# High-impact query used for all pipeline ingestion
+INGESTION_QUERY = (
+    "Breaking or recent high-impact Indian legal news only: major court decisions, landmark rulings, regulatory enforcement actions, antitrust or corporate litigation, government legal actions, or policy changes with significant economic, political, or societal consequences. Prioritize controversial, precedent-setting, or widely debated cases generating strong public or market reaction."
+)
+
+# Keep old name as alias for backward compat
+FRAMER_INGESTION_QUERY = INGESTION_QUERY
 
 
 def _extract_date_from_content(content: str, title: str) -> datetime | None:
@@ -211,11 +208,42 @@ def _domain_to_source(url: str) -> str:
         "hindustantimes.com": "Hindustan Times",
         "theprint.in": "The Print",
         "scroll.in": "Scroll",
+        "reuters.com": "Reuters",
+        "timesofindia.indiatimes.com": "Times of India",
     }
     for domain, name in domain_map.items():
         if domain in url:
             return name
     return "Tavily"
+
+
+def search_legal_news_multi(
+    settings: Settings,
+    queries: list[str] | None = None,
+    days_back: int = 2,
+) -> list[NormalizedArticle]:
+    """Single broad Tavily query for the Framer auto pipeline.
+
+    Uses one comprehensive query with more results instead of multiple narrow queries.
+    LLM will select the best article from the candidates (title-only selection to save tokens).
+    """
+    if not settings.tavily_api_key:
+        raise ValueError("Tavily API key not configured. Please set TAVILY_API_KEY in your .env file")
+
+    query = queries[0] if queries else INGESTION_QUERY
+    results = search_legal_news(
+        settings,
+        query=query,
+        search_depth="advanced",
+        max_results=20,
+        include_images=True,
+        days_back=days_back,
+    )
+    log.info(
+        "Ingestion: query len=%d chars → %d articles (days_back=%d)",
+        len(query), len(results), days_back,
+    )
+    return results
 
 
 # Keep backward-compatible alias used in existing ingest workflow

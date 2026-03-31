@@ -9,13 +9,30 @@ from app.models.publish import PublishResult
 from app.models.schedule import ScheduledPost
 
 
+class CostRecord(BaseModel):
+    id: str = ""
+    at: str = ""
+    pipeline_run_id: str = ""
+    api: str = ""          # "openai" | "tavily"
+    model: str = ""        # e.g. "gpt-4o-mini" or "tavily-search"
+    call_type: str = ""    # "select" | "generate" | "ingest" | etc.
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    cost_usd: float = 0.0
+    cost_inr: float = 0.0
+
+
 class PipelineRunLog(BaseModel):
     id: str = ""
     started_at: str = ""
     finished_at: str | None = None
+    updated_at: str = ""
     mode: str = "manual"
     steps: list[dict[str, Any]] = Field(default_factory=list)
-    status: str = "idle"  # idle | running | completed | failed
+    status: str = "idle"  # idle | running | paused | completed | failed | cancelled
+    cancelled: bool = False
+    cancellation_reason: str | None = None
     articles_ingested: int = 0
     drafts_generated: int = 0
     posts_published: int = 0
@@ -32,6 +49,7 @@ class AppStateSnapshot(BaseModel):
     auto_reply_enabled: bool = False
     pipeline_mode: str = "manual"
     pipeline_runs: list[dict[str, Any]] = Field(default_factory=list)
+    cost_records: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class RuntimeState:
@@ -45,6 +63,7 @@ class RuntimeState:
         self.auto_reply_enabled: bool = False
         self.pipeline_mode: str = "manual"
         self.pipeline_runs: list[PipelineRunLog] = []
+        self.cost_records: list[CostRecord] = []
 
     def to_snapshot(self) -> AppStateSnapshot:
         return AppStateSnapshot(
@@ -57,6 +76,7 @@ class RuntimeState:
             auto_reply_enabled=self.auto_reply_enabled,
             pipeline_mode=self.pipeline_mode,
             pipeline_runs=[r.model_dump(mode="json") for r in self.pipeline_runs[-20:]],
+            cost_records=[r.model_dump(mode="json") for r in self.cost_records[-500:]],
         )
 
     @classmethod
@@ -81,4 +101,6 @@ class RuntimeState:
         rs.pipeline_mode = snap.pipeline_mode
         for item in snap.pipeline_runs:
             rs.pipeline_runs.append(PipelineRunLog.model_validate(item))
+        for item in snap.cost_records:
+            rs.cost_records.append(CostRecord.model_validate(item))
         return rs

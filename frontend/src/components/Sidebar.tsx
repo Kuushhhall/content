@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  IndianRupee,
 } from 'lucide-react'
 import { NavLink, useLocation, Link } from 'react-router-dom'
 import { useUIStore } from '../store/uiStore'
@@ -23,6 +24,7 @@ const navItems = [
   { path: '/scheduler', label: 'Scheduler', icon: Calendar },
   { path: '/engagement', label: 'Engagement', icon: MessageSquare },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { path: '/costs', label: 'Costs (₹)', icon: IndianRupee },
 ]
 
 export function Sidebar() {

@@ -160,7 +160,7 @@ export function ContentStudio() {
   // Queries
   const articleQuery = useQuery({
     queryKey: ['articles', 'feed'],
-    queryFn: () => api.listArticles(1, 100, undefined, 'published_at', 'desc', true),
+    queryFn: () => api.listArticles(1, 100, undefined, 'published_at', 'desc', false),
   })
   const selectedArticle = articleQuery.data?.items?.find((a) => a.id === selectedArticleId)
 
@@ -169,6 +169,7 @@ export function ContentStudio() {
     queryFn: () => api.listDrafts(selectedArticleId ?? undefined),
     enabled: !!selectedArticleId,
   })
+
 
   // Mutations
   const generateMutation = useMutation({

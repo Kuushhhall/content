@@ -13,21 +13,21 @@ def register_ws_routes(app: FastAPI) -> None:
             while True:
                 store = app.state.store
 
-                # Get counts from in-memory store
-                articles_count = len(store.list_articles())
-                drafts_count = len(store.list_drafts())
-                
+                # Get current pipeline run with full step details
+                current_run = store.current_pipeline_run()
+
                 payload = {
                     "at": datetime.now(UTC).isoformat(),
-                    "articles": articles_count,
-                    "drafts": drafts_count,
+                    "articles": len(store.list_articles()),
+                    "drafts": len(store.list_drafts()),
                     "pendingSchedules": len(store.list_schedules(status="pending")),
                     "recentPublishes": len(store.recent_publish_results(limit=20)),
                     "autoReplyEnabled": store.get_auto_reply_enabled(),
                     "pipelineMode": store.get_pipeline_mode(),
-                    "pipelineRunning": store.current_pipeline_run() is not None,
+                    "pipelineRunning": current_run is not None,
+                    "currentRun": current_run.model_dump() if current_run else None,
                 }
                 await websocket.send_json(payload)
-                await asyncio.sleep(2)
+                await asyncio.sleep(1)
         except WebSocketDisconnect:
             return

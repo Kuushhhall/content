@@ -3,6 +3,8 @@ import type {
   Article,
   AutoSelectResult,
   BatchDraftResult,
+  CostRecord,
+  CostSummary,
   Draft,
   EngagementComment,
   EngagementScanResult,
@@ -204,6 +206,12 @@ export const api = {
     }),
   getPipelineStatus: () => request<PipelineStatus>('/pipeline/status'),
   runPipeline: () => request<PipelineRun>('/pipeline/run', { method: 'POST' }),
+  runFramerPipeline: () => request<{ run_id: string; status: string; steps: object[]; error?: string }>('/pipeline/run-framer', { method: 'POST' }),
+  cancelPipeline: (runId: string) =>
+    request<{ success: boolean; message: string }>('/pipeline/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ run_id: runId }),
+    }),
   autoSelectArticles: (count?: number) =>
     request<AutoSelectResult>(`/pipeline/auto-select${count ? `?count=${count}` : ''}`, {
       method: 'POST',
@@ -214,6 +222,8 @@ export const api = {
       body: JSON.stringify({ article_id: articleId, platforms }),
     }),
   runEngagement: () => request<EngagementScanResult>('/pipeline/run-engagement', { method: 'POST' }),
+  getCostRecords: (limit = 200) => request<CostRecord[]>(`/costs?limit=${limit}`),
+  getCostSummary: () => request<CostSummary>('/costs/summary'),
 }
 
 export function getStatusWsUrl(): string {

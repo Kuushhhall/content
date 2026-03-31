@@ -17,7 +17,7 @@ def publish_draft_to_platform(draft: ContentDraft, settings: Settings) -> Publis
     if p == "reddit":
         return reddit_pub.publish(draft, settings)
     if p == "framer":
-        return framer_pub.publish(draft, settings)
+        return framer_pub.publish(draft, settings, as_draft=True)
     if p == "medium":
         return medium_pub.publish(draft, settings)
     return PublishResult(
