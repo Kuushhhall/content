@@ -3,10 +3,9 @@ from pathlib import Path
 
 from app.models.article import NormalizedArticle
 from app.models.draft import ContentDraft
-from app.models.engagement import EngagementComment
 from app.models.publish import PublishResult
 from app.models.schedule import ScheduledPost
-from app.state.models import CostRecord, PipelineRunLog, RuntimeState
+from app.state.models import CostRecord, RuntimeState
 from app.state.persistence import load_state, save_state
 
 
@@ -28,11 +27,9 @@ class StateStore:
         return article
 
     def delete_article(self, article_id: str) -> bool:
-        """Delete an article and all its associated drafts from the store."""
         if article_id not in self._state.articles:
             return False
         del self._state.articles[article_id]
-        # Cascade delete drafts for this article
         draft_ids = [did for did, d in self._state.drafts.items() if d.article_id == article_id]
         for did in draft_ids:
             del self._state.drafts[did]
@@ -40,18 +37,13 @@ class StateStore:
         return True
 
     def list_articles_older_than(self, days: int) -> list[NormalizedArticle]:
-        """List articles older than specified days."""
         from datetime import datetime, timedelta, UTC
-        
         cutoff_date = datetime.now(UTC) - timedelta(days=days)
         old_articles = []
-        
         for article in self._state.articles.values():
-            # Use fetched_at as fallback if published_at is None
             article_date = article.published_at or article.fetched_at
             if article_date < cutoff_date:
                 old_articles.append(article)
-        
         return old_articles
 
     def list_articles(self, limit: int = 100) -> list[NormalizedArticle]:
@@ -75,7 +67,6 @@ class StateStore:
         return draft
 
     def delete_draft(self, draft_id: str) -> bool:
-        """Delete a draft by ID from the store."""
         if draft_id in self._state.drafts:
             del self._state.drafts[draft_id]
             self._persist()
@@ -97,7 +88,6 @@ class StateStore:
         return post
 
     def delete_schedule(self, schedule_id: str) -> bool:
-        """Delete a schedule by ID from the store."""
         if schedule_id in self._state.schedules:
             del self._state.schedules[schedule_id]
             self._persist()
@@ -113,13 +103,6 @@ class StateStore:
     def get_schedule(self, schedule_id: str) -> ScheduledPost | None:
         return self._state.schedules.get(schedule_id)
 
-    def set_article_summary(self, article_id: str, text: str) -> None:
-        self._state.llm_article_summaries[article_id] = text
-        self._persist()
-
-    def get_article_summary(self, article_id: str) -> str | None:
-        return self._state.llm_article_summaries.get(article_id)
-
     def append_publish_result(self, result: PublishResult) -> None:
         self._state.publish_results.append(result)
         self._persist()
@@ -127,84 +110,10 @@ class StateStore:
     def recent_publish_results(self, limit: int = 50) -> list[PublishResult]:
         return self._state.publish_results[-limit:]
 
-    def upsert_comment(self, comment: EngagementComment) -> EngagementComment:
-        self._state.engagement_comments[comment.id] = comment
-        self._persist()
-        return comment
-
-    def list_comments(self, platform: str | None = None) -> list[EngagementComment]:
-        items = list(self._state.engagement_comments.values())
-        if platform:
-            items = [c for c in items if c.platform.lower() == platform.lower()]
-        return sorted(items, key=lambda c: c.created_at, reverse=True)
-
-    def get_comment(self, comment_id: str) -> EngagementComment | None:
-        return self._state.engagement_comments.get(comment_id)
-
-    def set_auto_reply_enabled(self, enabled: bool) -> None:
-        self._state.auto_reply_enabled = enabled
-        self._persist()
-
-    def get_auto_reply_enabled(self) -> bool:
-        return self._state.auto_reply_enabled
-
-    # --- Pipeline mode ---
-    def set_pipeline_mode(self, mode: str) -> None:
-        self._state.pipeline_mode = mode
-        self._persist()
-
-    def get_pipeline_mode(self) -> str:
-        return self._state.pipeline_mode
-
-    def append_pipeline_run(self, run: PipelineRunLog) -> None:
-        self._state.pipeline_runs.append(run)
-        self._persist()
-
-    def update_pipeline_run(self, run: PipelineRunLog) -> None:
-        for i, r in enumerate(self._state.pipeline_runs):
-            if r.id == run.id:
-                self._state.pipeline_runs[i] = run
-                self._persist()
-                return
-        self._state.pipeline_runs.append(run)
-        self._persist()
-
-    def recent_pipeline_runs(self, limit: int = 10) -> list[PipelineRunLog]:
-        return self._state.pipeline_runs[-limit:]
-
-    def current_pipeline_run(self) -> PipelineRunLog | None:
-        for r in reversed(self._state.pipeline_runs):
-            if r.status == "running":
-                return r
-        return None
-
-    def cancel_pipeline_run(self, run_id: str, reason: str = "User requested cancellation") -> bool:
-        """Mark a pipeline run as cancelled. Returns True if found and cancelled."""
-        from datetime import UTC, datetime
-
-        for run in self._state.pipeline_runs:
-            if run.id == run_id:
-                run.cancelled = True
-                run.cancellation_reason = reason
-                run.status = "cancelled"
-                run.finished_at = datetime.now(UTC).isoformat()
-                run.updated_at = datetime.now(UTC).isoformat()
-                self._persist()
-                return True
-        return False
-
-    def is_pipeline_cancelled(self, run_id: str) -> bool:
-        """Check if a specific pipeline run has been cancelled."""
-        for run in self._state.pipeline_runs:
-            if run.id == run_id:
-                return run.cancelled
-        return False
-
     # -------------------------------------------------------------------------
     # Cost tracking
     # -------------------------------------------------------------------------
 
-    # USD per 1M tokens for known models
     _MODEL_COSTS_USD_PER_1M: dict = {
         "gpt-4o": {"input": 2.50, "output": 10.00},
         "gpt-4o-mini": {"input": 0.15, "output": 0.60},

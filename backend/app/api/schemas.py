@@ -25,7 +25,7 @@ class ArticleOut(BaseModel):
     url: str
     summary_hint: str = ""
     published_at: datetime | None = None
-    kind: str = "rss"
+    kind: str = "tavily"
     content_intelligence: ContentIntelligenceOut = ContentIntelligenceOut()
     structured_summary: str = ""
     full_content: str = ""
@@ -41,16 +41,6 @@ class ArticleOut(BaseModel):
     image_url: str | None = None
     full_content_fetched: bool = False
     tags: list[str] = []
-
-
-class DraftGenerateIn(BaseModel):
-    article_id: str
-    platform: Literal["linkedin", "x", "reddit", "framer", "medium", "instagram"]
-    draft_id: str | None = None
-    linkedin_target: Literal["profile", "company"] | None = Field(
-        default=None,
-        description="For LinkedIn: 'profile' for personal profile, 'company' for company page"
-    )
 
 
 class DraftOut(BaseModel):
@@ -78,7 +68,6 @@ class ScheduleOut(BaseModel):
     run_at: datetime
     status: str
     error: str | None = None
-    content_preview: str | None = None
 
 
 class PublishNowIn(BaseModel):
@@ -93,107 +82,15 @@ class PublishResultOut(BaseModel):
     at: datetime
 
 
-class EngagementCommentOut(BaseModel):
-    id: str
-    platform: str
-    author: str
-    text: str
-    source_post_id: str | None = None
-    created_at: datetime
-    status: str
-    ai_suggested_reply: str | None = None
-
-
-class EngagementReplyIn(BaseModel):
-    comment_id: str
-    reply_text: str | None = None
-
-
-class AutoReplyToggleIn(BaseModel):
-    enabled: bool
-
-
-class AnalyticsOverviewOut(BaseModel):
-    total_posts: int
-    success_posts: int
-    failed_posts: int
-    success_rate: float
-    by_platform: dict[str, int]
-
-
-# --- Pipeline schemas ---
-
-class PipelineModeIn(BaseModel):
-    mode: Literal["auto", "manual"]
-
-
-class PipelineModeOut(BaseModel):
-    mode: str
-
-
-class PipelineRunOut(BaseModel):
-    id: str
-    started_at: str
-    finished_at: str | None = None
-    mode: str
-    status: str
-    articles_ingested: int
-    drafts_generated: int
-    posts_published: int
-    error: str | None = None
-    steps: list[dict] = []
-
-
-class PipelineStatusOut(BaseModel):
-    mode: str
-    current_run: PipelineRunOut | None = None
-    recent_runs: list[PipelineRunOut] = []
-
-
-class BatchDraftIn(BaseModel):
-    article_id: str
-    platforms: list[Literal["linkedin", "x", "reddit", "framer", "medium", "instagram"]]
-
-
-class BatchDraftOut(BaseModel):
-    article_id: str
-    drafts: list[DraftOut] = []
-    errors: list[str] = []
-
-
-class AutoSelectOut(BaseModel):
-    article_ids: list[str]
-    articles: list[ArticleOut] = []
-
-
-class IngestOptionsIn(BaseModel):
-    days_back: int = 3
-    max_results: int = 15
-    sources: list[str] | None = None
-    include_images: bool = True
-
-
 class ArticleUpdateIn(BaseModel):
     title: str | None = None
     summary_hint: str | None = None
-    structured_summary: str | None = None
     full_content: str | None = None
-    court_name: str | None = None
-    case_number: str | None = None
-    judges_involved: list[str] | None = None
-    parties: list[str] | None = None
-    jurisdiction: str | None = None
-    precedent_value: Literal["high", "medium", "low"] | None = None
 
 
-
-class FramerPipelineOut(BaseModel):
-    run_id: str
-    status: str  # "completed" | "failed"
-    article_id: str | None = None
-    article_title: str | None = None
-    article_url: str | None = None
-    draft_id: str | None = None
-    framer_item_id: str | None = None
-    steps: list[dict] = Field(default_factory=list)
+class CycleRunOut(BaseModel):
+    total_articles: int
+    top_10_ids: list[str]
+    drafts_created: int
+    drafts: list[DraftOut] = []
     error: str | None = None

@@ -1,24 +1,26 @@
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import SettingsDep, StoreDep
 from app.api.schemas import PublishNowIn, PublishResultOut, ScheduleIn, ScheduleOut
-from app.models.schedule import ScheduledPost
-from app.state.store import StateStore
-from app.workflows import publish as publish_workflow
+from app.platforms import framer as framer_pub
 
 router = APIRouter(tags=["publish"])
 
 
 @router.post("/publish/now", response_model=PublishResultOut)
-def publish_now(
-    body: PublishNowIn,
-    store: StoreDep,
-    settings: SettingsDep,
-) -> PublishResultOut:
+def publish_now(body: PublishNowIn, store: StoreDep, settings: SettingsDep) -> PublishResultOut:
+    """Publish immediately. Only works for Framer drafts."""
     draft = store.get_draft(body.draft_id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
-    result = publish_workflow.publish_immediate(store, settings, body.draft_id)
+
+    if draft.platform.lower() != "framer":
+        raise HTTPException(status_code=400, detail="Only Framer drafts can be published directly. Use copy for LinkedIn/X.")
+
+    result = framer_pub.publish(draft, settings, as_draft=False)
+    store.append_publish_result(result)
+
     return PublishResultOut(
         platform=result.platform,
         success=result.success,
@@ -29,20 +31,8 @@ def publish_now(
 
 
 @router.get("/publish/results", response_model=dict)
-def list_results(
-    store: StoreDep,
-    page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> dict:
-    """List publish results with pagination."""
-    all_results = store.recent_publish_results(limit=1000)  # Get all for pagination
-    total = len(all_results)
-    
-    # Apply pagination
-    start_idx = (page - 1) * limit
-    end_idx = start_idx + limit
-    paginated_results = all_results[start_idx:end_idx]
-    
+def list_results(store: StoreDep) -> dict:
+    rows = store.recent_publish_results(limit=100)
     return {
         "items": [
             PublishResultOut(
@@ -52,20 +42,20 @@ def list_results(
                 message=r.message,
                 at=r.at,
             )
-            for r in paginated_results
+            for r in rows
         ],
-        "total": total,
-        "page": page,
-        "page_size": limit,
-        "pages": (total + limit - 1) // limit if total > 0 else 1,
+        "total": len(rows),
     }
 
 
 @router.post("/schedule", response_model=ScheduleOut)
 def create_schedule(body: ScheduleIn, store: StoreDep) -> ScheduleOut:
-    if not store.get_draft(body.draft_id):
+    draft = store.get_draft(body.draft_id)
+    if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
-    sid = StateStore.new_id("sch_")
+
+    sid = store.new_id("sch_")
+    from app.models.schedule import ScheduledPost
     sched = ScheduledPost(
         id=sid,
         draft_id=body.draft_id,
@@ -85,21 +75,8 @@ def create_schedule(body: ScheduleIn, store: StoreDep) -> ScheduleOut:
 
 
 @router.get("/schedule", response_model=dict)
-def list_schedule(
-    store: StoreDep,
-    status: str | None = None,
-    page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> dict:
-    """List schedules with pagination."""
-    all_schedules = store.list_schedules(status=status)
-    total = len(all_schedules)
-    
-    # Apply pagination
-    start_idx = (page - 1) * limit
-    end_idx = start_idx + limit
-    paginated_schedules = all_schedules[start_idx:end_idx]
-    
+def list_schedule(store: StoreDep) -> dict:
+    schedules = store.list_schedules()
     return {
         "items": [
             ScheduleOut(
@@ -110,12 +87,9 @@ def list_schedule(
                 status=s.status,
                 error=s.error,
             )
-            for s in paginated_schedules
+            for s in schedules
         ],
-        "total": total,
-        "page": page,
-        "page_size": limit,
-        "pages": (total + limit - 1) // limit if total > 0 else 1,
+        "total": len(schedules),
     }
 
 

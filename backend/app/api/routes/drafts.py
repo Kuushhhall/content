@@ -1,9 +1,8 @@
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 
-from app.api.deps import SettingsDep, StoreDep
-from app.api.schemas import DraftGenerateIn, DraftOut, DraftUpdateIn
-from app.llm.pipeline import generate_draft
+from app.api.deps import StoreDep
+from app.api.schemas import DraftOut, DraftUpdateIn
 
 router = APIRouter(prefix="/drafts", tags=["drafts"])
 
@@ -11,58 +10,15 @@ router = APIRouter(prefix="/drafts", tags=["drafts"])
 @router.get("", response_model=dict)
 async def list_drafts(
     store: StoreDep,
-    article_id: str | None = Query(None, description="Filter by article ID"),
-    platform: str | None = Query(None, description="Filter by platform"),
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    platform: str | None = Query(None),
 ) -> dict:
-    """List drafts from in-memory store."""
     drafts = store.list_drafts()
-
-    # Apply filters
-    if article_id:
-        drafts = [d for d in drafts if d.article_id == article_id]
     if platform:
         drafts = [d for d in drafts if d.platform == platform]
-
-    # Sort by created_at (newest first)
-    drafts.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
-
-    # Simple pagination
-    total = len(drafts)
-    start = (page - 1) * page_size
-    end = start + page_size
-    paginated_drafts = drafts[start:end]
-
     return {
-        "items": [DraftOut.model_validate(d.model_dump()) for d in paginated_drafts],
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "pages": (total + page_size - 1) // page_size,
+        "items": [DraftOut.model_validate(d.model_dump()) for d in drafts],
+        "total": len(drafts),
     }
-
-
-@router.post("/generate", response_model=DraftOut)
-async def generate(body: DraftGenerateIn, store: StoreDep, settings: SettingsDep) -> DraftOut:
-    article = store.get_article(body.article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-
-    # Pass StateStore to generate_draft
-    try:
-        draft = await generate_draft(
-            store,
-            settings,
-            article,
-            body.platform,
-            draft_id=body.draft_id,
-            linkedin_target=body.linkedin_target or "profile",
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return DraftOut.model_validate(draft.model_dump())
 
 
 @router.get("/{draft_id}", response_model=DraftOut)
@@ -75,7 +31,7 @@ async def get_draft(draft_id: str, store: StoreDep) -> DraftOut:
 
 @router.patch("/{draft_id}", response_model=DraftOut)
 async def patch_draft(draft_id: str, body: DraftUpdateIn, store: StoreDep) -> DraftOut:
-    from datetime import UTC, datetime
+    from datetime import UTC
 
     d = store.get_draft(draft_id)
     if not d:
@@ -87,22 +43,8 @@ async def patch_draft(draft_id: str, body: DraftUpdateIn, store: StoreDep) -> Dr
     return DraftOut.model_validate(d.model_dump())
 
 
-@router.post("/{draft_id}/regenerate", response_model=DraftOut)
-async def regenerate_draft(draft_id: str, store: StoreDep, settings: SettingsDep) -> DraftOut:
-    """Regenerate a draft using a fresh LLM call."""
-    existing_draft = store.get_draft(draft_id)
-    if not existing_draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
-
-    article = store.get_article(existing_draft.article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-
-    try:
-        new_draft = await generate_draft(
-            store, settings, article, existing_draft.platform, draft_id=draft_id,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return DraftOut.model_validate(new_draft.model_dump())
+@router.delete("/{draft_id}", response_model=dict)
+async def delete_draft(draft_id: str, store: StoreDep) -> dict:
+    if store.delete_draft(draft_id):
+        return {"success": True, "deleted_id": draft_id}
+    raise HTTPException(status_code=404, detail="Draft not found")

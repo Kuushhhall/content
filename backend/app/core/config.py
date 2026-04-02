@@ -27,54 +27,35 @@ class Settings(BaseSettings):
     tavily_api_key: str | None = None
 
 
-    # Scheduler - DISABLED
-    # ingest_cron_minutes: int = 30
-    # publish_scan_interval_seconds: int = 60
-
-    # Publishers — LinkedIn (OAuth2 three-legged in production; token when pre-authorized)
+    # Publishers — LinkedIn (copy-paste only, no API posting)
     linkedin_access_token: str | None = None
-    linkedin_person_urn: str | None = None  # urn:li:person:...
-    linkedin_organization_id: str | None = None  # For company page posting
+    linkedin_person_urn: str | None = None
+    linkedin_organization_id: str | None = None
 
-    # X (Twitter) OAuth 1.0a
+    # X (Twitter) (copy-paste only, no API posting)
     twitter_api_key: str | None = None
     twitter_api_secret: str | None = None
     twitter_access_token: str | None = None
     twitter_access_token_secret: str | None = None
 
-    # Reddit
-    reddit_client_id: str | None = None
-    reddit_client_secret: str | None = None
-    reddit_user_agent: str = "legal-content-os/0.1 by developer"
-    reddit_username: str | None = None
-    reddit_password: str | None = None
-    reddit_subreddit: str = "test"
-
     # Framer CMS
     framer_api_token: str | None = None
     framer_project_id: str | None = None
     framer_collection_id: str | None = None
-    framer_collection_type: str = "articles"  # "articles" or "news"
+    framer_collection_type: str = "news"
 
-    # Framer News collection field IDs (yB98Z953G — confirmed from live items)
-    framer_field_title: str = "GlEJCucUC"       # Heading (string)
-    framer_field_excerpt: str = "H76FV4UEM"     # SubHeading (string)
-    framer_field_body_snippet: str = "fFgoO6cYg" # Body snippet/description (string)
-    framer_field_content: str = "A11mmr7Ra"     # Content (formattedText)
-    framer_field_featured: str = "Fztf8IFX3"   # Featured (boolean)
-    framer_field_author: str = "YDHS8MCIi"     # Author (collectionReference)
-    framer_field_category: str = "EVAt7zfnx"   # News Category (collectionReference)
-    framer_field_image: str = "YcCvnPRvd"      # Image (image)
+    framer_field_title: str = "GlEJCucUC"
+    framer_field_excerpt: str = "H76FV4UEM"
+    framer_field_body_snippet: str = "fFgoO6cYg"
+    framer_field_content: str = "A11mmr7Ra"
+    framer_field_featured: str = "Fztf8IFX3"
+    framer_field_author: str = "YDHS8MCIi"
+    framer_field_category: str = "EVAt7zfnx"
+    framer_field_image: str = "YcCvnPRvd"
 
-    # Framer default author item ID (collectionReference — must be item ID, not slug)
-    # krunal-shah item ID in knauXjZXG Authors collection
     framer_default_author: str = "vNngYbHGC"
 
-    # Framer News Category mapping (maps category names → item IDs in ep2lxPZjA collection)
-    # Values are item IDs (not slugs) because EVAt7zfnx is a collectionReference field
-    # Can be set via FRAMER_CATEGORY_MAP env var as JSON string
     framer_category_map: dict = {
-        # ep2lxPZjA News Category collection — real item IDs
         "Litigation": "zy7z6HZkN",
         "AI in Legal": "qG9elqDnx",
         "Legal Tech & AI": "qG9elqDnx",
@@ -85,32 +66,8 @@ class Settings(BaseSettings):
         "Compliance & Risk": "j2EW2fFYJ",
         "Commercial & Transactions": "zKiSwVkZk",
         "Legal Updates": "O2Ry36OcG",
-        "Product & Company Update": "ir0iYnWyh",
-        "Types of Contracts": "zKiSwVkZk",
-        "Due Diligence": "j2EW2fFYJ",
-        # Aliases for LLM slug-style names
-        "ai-in-legal": "qG9elqDnx",
-        "legal-tech-ai": "qG9elqDnx",
-        "legal-update": "O2Ry36OcG",
         "news": "O2Ry36OcG",
-        "judgements-cases": "zy7z6HZkN",
-        "disputes-enforcement": "NgjBjS5IB",
-        "regulatory": "ir0iYnWyh",
     }
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Parse FRAMER_CATEGORY_MAP from JSON string if provided
-        if isinstance(self.framer_category_map, str):
-            try:
-                self.framer_category_map = json.loads(self.framer_category_map)
-            except json.JSONDecodeError:
-                # Keep default if JSON parsing fails
-                pass
-
-    # Medium Integration API
-    medium_integration_token: str | None = None
-    medium_publication_id: str | None = None
 
     @property
     def state_path(self) -> Path:

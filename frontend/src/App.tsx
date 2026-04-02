@@ -7,10 +7,8 @@ import { TopBar } from './components/TopBar'
 import { LandingPage } from './pages/LandingPage'
 import { Dashboard } from './pages/Dashboard'
 import { NewsFeed } from './pages/NewsFeed'
-import { ContentStudio } from './pages/ContentStudio'
+import { DraftsPage } from './pages/DraftsPage'
 import { PostScheduler } from './pages/PostScheduler'
-import { Analytics } from './pages/Analytics'
-import { NewsSearchPage } from './pages/NewsSearchPage'
 import CostTracker from './pages/CostTracker'
 import { useUIStore } from './store/uiStore'
 
@@ -56,7 +54,6 @@ function App() {
         }}
       />
 
-      {/* Conditionally render Side & Top bars */}
       {!isLanding && <Sidebar />}
 
       <main className={`flex flex-1 flex-col overflow-hidden ${!isLanding ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72') : ''}`}>
@@ -77,11 +74,9 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/news" element={<NewsFeed />} />
-                <Route path="/studio" element={<ContentStudio />} />
+                <Route path="/drafts" element={<DraftsPage />} />
                 <Route path="/scheduler" element={<PostScheduler />} />
-                <Route path="/analytics" element={<Analytics />} />
                 <Route path="/costs" element={<CostTracker />} />
-                <Route path="/news-search" element={<NewsSearchPage />} />
               </Routes>
             </motion.div>
           </AnimatePresence>

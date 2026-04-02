@@ -119,6 +119,8 @@ function XPreview({ content }: { content: string }) {
 }
 
 function LinkedInPreview({ content }: { content: string }) {
+  const paragraphs = content.split('\n\n').filter(p => p.trim());
+  
   return (
     <div className="w-full max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl overflow-hidden font-sans shadow-xl text-slate-900 leading-normal">
       <div className="p-4">
@@ -139,9 +141,13 @@ function LinkedInPreview({ content }: { content: string }) {
            <MoreHorizontal size={20} className="text-slate-400" />
         </div>
         
-        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-4 font-normal break-words [overflow-wrap:anywhere] text-slate-800">
-          {content}
-        </p>
+        <div className="mb-4 space-y-4">
+          {paragraphs.map((paragraph, index) => (
+            <p key={index} className="text-sm leading-relaxed font-normal whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-slate-800">
+              {paragraph}
+            </p>
+          ))}
+        </div>
         
         <div className="flex items-center justify-between py-2 border-t border-slate-100">
            <div className="flex items-center -space-x-1">

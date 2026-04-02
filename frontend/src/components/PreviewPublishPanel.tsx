@@ -244,6 +244,8 @@ export const PreviewPublishPanel: React.FC<PreviewPublishPanelProps> = ({
 
 // Platform-specific preview components
 const LinkedInPreview: React.FC<{ content: string }> = ({ content }) => {
+  const paragraphs = content.split('\n\n').filter(p => p.trim());
+  
   return (
     <div className="max-w-2xl mx-auto bg-[#f3f2ef] rounded-lg border border-gray-300 overflow-hidden font-sans">
       <div className="p-4 bg-white">
@@ -257,8 +259,12 @@ const LinkedInPreview: React.FC<{ content: string }> = ({ content }) => {
             <p className="text-xs text-gray-500 mt-1">Just now • 🌎</p>
           </div>
         </div>
-        <div className="text-gray-900 whitespace-pre-wrap leading-relaxed space-y-4">
-          {content}
+        <div className="text-gray-900 leading-relaxed space-y-4 mb-4">
+          {paragraphs.map((paragraph, index) => (
+            <p key={index} className="break-words whitespace-pre-wrap">
+              {paragraph}
+            </p>
+          ))}
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between text-gray-600">
           <div className="flex items-center gap-6">
