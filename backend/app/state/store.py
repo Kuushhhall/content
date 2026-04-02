@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 
 from app.models.article import NormalizedArticle
+from app.models.cycle import CycleProgress
 from app.models.draft import ContentDraft
 from app.models.publish import PublishResult
 from app.models.schedule import ScheduledPost
@@ -20,6 +21,10 @@ class StateStore:
 
     def _persist(self) -> None:
         save_state(self._path, self._state)
+
+    # -------------------------------------------------------------------------
+    # Articles
+    # -------------------------------------------------------------------------
 
     def upsert_article(self, article: NormalizedArticle) -> NormalizedArticle:
         self._state.articles[article.id] = article
@@ -61,6 +66,10 @@ class StateStore:
     def get_article(self, article_id: str) -> NormalizedArticle | None:
         return self._state.articles.get(article_id)
 
+    # -------------------------------------------------------------------------
+    # Drafts
+    # -------------------------------------------------------------------------
+
     def upsert_draft(self, draft: ContentDraft) -> ContentDraft:
         self._state.drafts[draft.id] = draft
         self._persist()
@@ -81,6 +90,10 @@ class StateStore:
 
     def get_draft(self, draft_id: str) -> ContentDraft | None:
         return self._state.drafts.get(draft_id)
+
+    # -------------------------------------------------------------------------
+    # Schedules
+    # -------------------------------------------------------------------------
 
     def upsert_schedule(self, post: ScheduledPost) -> ScheduledPost:
         self._state.schedules[post.id] = post
@@ -103,6 +116,19 @@ class StateStore:
     def get_schedule(self, schedule_id: str) -> ScheduledPost | None:
         return self._state.schedules.get(schedule_id)
 
+    def get_pending_schedules(self) -> list[ScheduledPost]:
+        """Get schedules that are pending and past their run_at time."""
+        from datetime import UTC, datetime
+        now = datetime.now(UTC)
+        return [
+            s for s in self._state.schedules.values()
+            if s.status == "pending" and s.run_at <= now
+        ]
+
+    # -------------------------------------------------------------------------
+    # Publish results
+    # -------------------------------------------------------------------------
+
     def append_publish_result(self, result: PublishResult) -> None:
         self._state.publish_results.append(result)
         self._persist()
@@ -117,19 +143,17 @@ class StateStore:
     _MODEL_COSTS_USD_PER_1M: dict = {
         "gpt-4o": {"input": 2.50, "output": 10.00},
         "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-        "gpt-5-nano": {"input": 0.15, "output": 0.60},
+        "gpt-5-nano": {"input": 0.05, "output": 0.40},
         "o3-mini": {"input": 1.10, "output": 4.40},
         "llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79},
         "llama-3.1-8b-instant": {"input": 0.05, "output": 0.08},
         "default": {"input": 0.50, "output": 1.50},
     }
-    _TAVILY_COST_USD_PER_SEARCH: float = 0.01
     _USD_TO_INR: float = 84.0
 
-    def build_cost_record(
+    def record_llm_cost(
         self,
-        pipeline_run_id: str,
-        api: str,
+        cycle_id: str,
         model: str,
         call_type: str,
         usage: dict,
@@ -140,20 +164,17 @@ class StateStore:
         completion_tokens = usage.get("completion_tokens", 0) or 0
         total_tokens = usage.get("total_tokens", 0) or 0
 
-        if api == "tavily":
-            cost_usd = self._TAVILY_COST_USD_PER_SEARCH
-        else:
-            rates = self._MODEL_COSTS_USD_PER_1M.get(model, self._MODEL_COSTS_USD_PER_1M["default"])
-            cost_usd = (
-                prompt_tokens * rates["input"] / 1_000_000
-                + completion_tokens * rates["output"] / 1_000_000
-            )
+        rates = self._MODEL_COSTS_USD_PER_1M.get(model, self._MODEL_COSTS_USD_PER_1M["default"])
+        cost_usd = (
+            prompt_tokens * rates["input"] / 1_000_000
+            + completion_tokens * rates["output"] / 1_000_000
+        )
 
-        return CostRecord(
+        record = CostRecord(
             id=self.new_id("cost_"),
             at=datetime.now(UTC).isoformat(),
-            pipeline_run_id=pipeline_run_id,
-            api=api,
+            pipeline_run_id=cycle_id,
+            api="openai",
             model=model,
             call_type=call_type,
             prompt_tokens=prompt_tokens,
@@ -162,10 +183,9 @@ class StateStore:
             cost_usd=round(cost_usd, 8),
             cost_inr=round(cost_usd * self._USD_TO_INR, 6),
         )
-
-    def append_cost_record(self, record: CostRecord) -> None:
         self._state.cost_records.append(record)
         self._persist()
+        return record
 
     def list_cost_records(self, limit: int = 200) -> list[CostRecord]:
         return self._state.cost_records[-limit:]
@@ -192,6 +212,25 @@ class StateStore:
             "by_api": by_api,
             "by_model": by_model,
         }
+
+    # -------------------------------------------------------------------------
+    # Cycle progress (persistent)
+    # -------------------------------------------------------------------------
+
+    def get_cycle_progress(self) -> CycleProgress:
+        return self._state.cycle_progress
+
+    def set_cycle_progress(self, progress: CycleProgress) -> None:
+        self._state.cycle_progress = progress
+        self._persist()
+
+    def reset_cycle_progress(self) -> None:
+        self._state.cycle_progress = CycleProgress()
+        self._persist()
+
+    # -------------------------------------------------------------------------
+    # Utilities
+    # -------------------------------------------------------------------------
 
     @staticmethod
     def new_id(prefix: str = "") -> str:

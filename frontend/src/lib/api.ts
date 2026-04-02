@@ -4,10 +4,8 @@ import type {
   CostSummary,
   Draft,
   PaginatedResponse,
-  Platform,
   PublishResult,
   Schedule,
-  StatusFeed,
 } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000/api'
@@ -37,8 +35,19 @@ export const api = {
     request<PaginatedResponse<Article>>(`/articles?page=${page}&page_size=${pageSize}`),
 
   runCycle: () =>
-    request<{ cycle_id: string; total_articles: number; top_10_ids: string[]; drafts_created: number; drafts: Draft[]; timestamp: string }>(
+    request<{ cycle_id: string; total_articles: number; top_10_ids: string[]; drafts_created: number; draft_ids: string[]; errors: string[]; timestamp: string }>(
       '/articles/run-cycle',
+      { method: 'POST' },
+    ),
+
+  getCycleProgress: () =>
+    request<{ cycle_id: string; status: string; started_at: string; finished_at: string; step: string; step_detail: string; total_articles: number; articles_fetched: number; top_10_ids: string[]; drafts_created: number; errors: string[] }>(
+      '/articles/cycle-progress',
+    ),
+
+  resetCycle: () =>
+    request<{ status: string }>(
+      '/articles/reset-cycle',
       { method: 'POST' },
     ),
 

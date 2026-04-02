@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, Check, Play, Clock, Trash2, Sparkles, ExternalLink } from 'lucide-react'
+import { Copy, Check, Play, Clock, Trash2, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 

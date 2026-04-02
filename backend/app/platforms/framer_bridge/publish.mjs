@@ -3,9 +3,11 @@
  * Usage: node publish.mjs <project_url> <api_key> <collection_id> <json_payload>
  *
  * json_payload must include:
- *   fieldData: { "Title": "...", "Slug": "...", "Content": "...", ... }
+ *   fieldData: { "GlEJCucUC": {type, value}, "H76FV4UEM": {type, value}, ..., "Slug": "url-slug" }
+ *   draft: true/false
  *
- * The fieldData should contain the exact field names matching your Framer CMS collection.
+ * The fieldData uses Framer's internal field IDs as keys.
+ * The "Slug" key is extracted and used as the item slug, not sent as a field.
  */
 import { connect } from "framer-api"
 import { randomUUID } from "crypto"
@@ -29,9 +31,22 @@ try {
     process.exit(1)
   }
 
-  // Generate slug (Framer auto-assigns item ID)
-  const tempId = randomUUID().replace(/-/g, "").slice(0, 20)
-  const slug = fieldData.Slug || fieldData.slug || `post-${tempId}`
+  // Extract slug from fieldData (Python sends it as "Slug" key)
+  let slug = payload.slug
+  if (!slug) {
+    const slugKey = Object.keys(fieldData).find(k => k.toLowerCase() === 'slug')
+    if (slugKey) {
+      const slugVal = fieldData[slugKey]
+      slug = typeof slugVal === 'object' ? slugVal.value : slugVal
+      delete fieldData[slugKey] // Remove from fieldData - not a real Framer field
+    }
+  }
+  
+  // Generate fallback slug if none provided
+  if (!slug) {
+    const tempId = randomUUID().replace(/-/g, "").slice(0, 20)
+    slug = `post-${tempId}`
+  }
 
   // Connect to Framer
   const framer = await connect(projectUrl, apiKey)
@@ -43,6 +58,8 @@ try {
 
   for (const [key, value] of Object.entries(fieldData)) {
     if (value === null || value === undefined) continue
+    // Skip the Slug key if it wasn't deleted above
+    if (key.toLowerCase() === 'slug') continue
     // Already formatted by Python (has type + value keys)
     if (typeof value === "object" && "type" in value && "value" in value) {
       formattedFieldData[key] = value

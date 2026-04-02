@@ -1,31 +1,14 @@
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Play,
-  Newspaper,
-  PenTool,
-  Send,
-  MessageCircle,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  ArrowRight,
-  Bot,
-  Activity as ActivityIcon,
-  StopCircle,
-  Globe,
-} from 'lucide-react'
+import { Newspaper, FileText, Clock, Sparkles, RotateCcw, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 import { Card } from '../components/Card'
-import { Badge } from '../components/Badge'
-import { Spinner } from '../components/Spinner'
-import { PipelineMonitor } from '../components/PipelineMonitor'
 import { api } from '../lib/api'
 import { useStatusSocket } from '../hooks/useStatusSocket'
 import { useUIStore } from '../store/uiStore'
-import type { PipelineStatus } from '../types'
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -33,166 +16,152 @@ export function Dashboard() {
   const status = useStatusSocket()
   const isDarkMode = useUIStore((state) => state.isDarkMode)
 
-  const { data: pipelineStatus } = useQuery<PipelineStatus>({
-    queryKey: ['pipelineStatus'],
-    queryFn: api.getPipelineStatus,
-    refetchInterval: 5000,
+  // Fetch cycle progress from persistent store
+  const { data: cycleProgress, refetch: refetchCycle } = useQuery({
+    queryKey: ['cycle-progress'],
+    queryFn: () => api.getCycleProgress(),
+    refetchInterval: 3000,
   })
 
-  useMutation({
-    mutationFn: (mode: 'auto' | 'manual') => api.setPipelineMode(mode),
+  const isRunning = cycleProgress?.status === 'running'
+  const isCompleted = cycleProgress?.status === 'completed'
+  const isFailed = cycleProgress?.status === 'failed'
+
+  const runCycleMut = useMutation({
+    mutationFn: api.runCycle,
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })
-      toast.success(`Protocol set to ${result.mode}`)
-    },
-  })
-
-  const runPipelineMutation = useMutation({
-    mutationFn: api.runPipeline,
-    onSuccess: async (run) => {
-      await queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })
-      if (run.status === 'completed') {
-        toast.success(`Pipeline complete. Drafts saved.`)
-      } else if (run.status === 'failed') {
-        toast.error(`Pipeline failed: ${run.error ?? 'Unknown error'}`)
-      }
-    },
-    onError: (err) => toast.error((err as Error).message),
-  })
-
-  const runFramerMutation = useMutation({
-    mutationFn: api.runFramerPipeline,
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ['pipelineStatus'] })
-      if (result.status === 'completed') {
-        toast.success(`Framer pipeline complete. Draft saved to CMS.`)
-      } else if (result.status === 'failed') {
-        toast.error(`Framer pipeline failed: ${result.error ?? 'Unknown error'}`)
-      }
-    },
-    onError: (err) => toast.error((err as Error).message),
-  })
-
-  const cancelPipelineMutation = useMutation({
-    mutationFn: (runId: string) => api.cancelPipeline(runId),
-    onSuccess: (result) => {
-      if (result.success) {
-        toast.success('Pipeline stopping...')
+      await queryClient.invalidateQueries({ queryKey: ['drafts'] })
+      await queryClient.invalidateQueries({ queryKey: ['articles'] })
+      await refetchCycle()
+      const msg = `${result.total_articles} articles found, ${result.drafts_created} drafts created`
+      if (result.errors && result.errors.length > 0) {
+        toast.success(`${msg} (${result.errors.length} errors)`)
       } else {
-        toast.error(result.message)
+        toast.success(`Cycle complete! ${msg}`)
       }
+      navigate('/drafts')
     },
-    onError: (err) => toast.error((err as Error).message),
+    onError: async (err) => {
+      await refetchCycle()
+      toast.error((err as Error).message)
+    },
   })
 
-  const currentRun = status?.currentRun || pipelineStatus?.current_run
-  const recentRuns = pipelineStatus?.recent_runs ?? []
+  const resetCycleMut = useMutation({
+    mutationFn: api.resetCycle,
+    onSuccess: async () => {
+      await refetchCycle()
+      toast.success('Cycle reset. You can run a new cycle.')
+    },
+  })
+
+  // Poll for running cycle state
+  useEffect(() => {
+    if (isRunning) {
+      const interval = setInterval(() => {
+        refetchCycle()
+        queryClient.invalidateQueries({ queryKey: ['drafts'] })
+        queryClient.invalidateQueries({ queryKey: ['articles'] })
+      }, 3000)
+      return () => clearInterval(interval)
+    }
+  }, [isRunning, refetchCycle, queryClient])
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
-      {/* Hero section */}
+      {/* Hero */}
       <section className={`relative overflow-hidden rounded-[3rem] border p-12 backdrop-blur-3xl transition-all duration-500 ${
-        isDarkMode 
-          ? 'border-graphite/40 bg-stellar/10' 
-          : 'border-graphite/20 bg-cream shadow-2xl shadow-ink/5'
+        isDarkMode ? 'border-graphite/40 bg-stellar/10' : 'border-graphite/20 bg-cream shadow-2xl shadow-ink/5'
       }`}>
-        {/* Ambient Blobs */}
         <div className={`absolute -right-32 -top-32 h-96 w-96 rounded-full blur-[120px] animate-pulse transition-colors duration-1000 ${isDarkMode ? 'bg-volt/10' : 'bg-volt/5'}`} />
         <div className={`absolute -bottom-24 -left-24 h-72 w-72 rounded-full blur-[90px] transition-colors duration-1000 ${isDarkMode ? 'bg-amethyst/10' : 'bg-amethyst/5'}`} />
         
         <div className="relative z-10">
-          <div className="mb-10 flex flex-wrap items-center justify-between gap-8">
-            <div className="space-y-4">
-              <h1 className={`font-serif text-5xl md:text-6xl font-black tracking-tighter text-main`}>
-                Dashboard
-              </h1>
-              <p className={`max-w-2xl text-lg font-medium leading-relaxed text-muted`}>
-                Monitor your content pipeline, track articles, and manage drafts.
-              </p>
+          <h1 className="font-serif text-5xl md:text-6xl font-black tracking-tighter text-main mb-4">
+            Dashboard
+          </h1>
+          <p className={`max-w-2xl text-lg font-medium leading-relaxed text-muted mb-8`}>
+            Run a content cycle to fetch 30 legal news articles, rank the top 10, and generate 22 drafts across LinkedIn, Framer, and X.
+          </p>
+
+          {/* Cycle status */}
+          {isRunning && (
+            <div className={`mb-6 rounded-2xl border p-4 ${isDarkMode ? 'border-volt/30 bg-volt/5' : 'border-volt/30 bg-volt/5'}`}>
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 text-volt animate-spin" />
+                <div>
+                  <p className="text-sm font-bold text-main">{cycleProgress?.step_detail || 'Running cycle...'}</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {cycleProgress?.articles_fetched || 0} articles fetched · {cycleProgress?.drafts_created || 0} drafts created
+                  </p>
+                </div>
+              </div>
             </div>
+          )}
 
-          </div>
+          {isCompleted && (
+            <div className={`mb-6 rounded-2xl border p-4 ${isDarkMode ? 'border-success/30 bg-success/5' : 'border-success/30 bg-success/5'}`}>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-success" />
+                <div>
+                  <p className="text-sm font-bold text-main">Last cycle completed</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {cycleProgress?.total_articles || 0} articles · {cycleProgress?.drafts_created || 0} drafts
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
-          <div className="flex flex-wrap items-center gap-4">
+          {isFailed && (
+            <div className={`mb-6 rounded-2xl border p-4 ${isDarkMode ? 'border-danger/30 bg-danger/5' : 'border-danger/30 bg-danger/5'}`}>
+              <div className="flex items-center gap-3">
+                <XCircle className="w-5 h-5 text-danger" />
+                <div>
+                  <p className="text-sm font-bold text-main">Last cycle failed</p>
+                  <p className="text-xs text-muted mt-0.5">{cycleProgress?.step_detail || 'Unknown error'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-4">
             <button
-              onClick={() => runPipelineMutation.mutate()}
-              disabled={runPipelineMutation.isPending || runFramerMutation.isPending || !!currentRun}
-              className="btn-primary group h-16 px-10 text-lg font-black shadow-glow-volt/20 rounded-[1.5rem]"
+              onClick={() => runCycleMut.mutate()}
+              disabled={isRunning}
+              className="btn-primary group h-16 px-10 text-lg font-black shadow-glow-volt/20 rounded-[1.5rem] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {runPipelineMutation.isPending ? (
+              {isRunning ? (
                 <div className="flex items-center gap-3">
-                  <Spinner size={24} />
+                  <Loader2 className="w-6 h-6 animate-spin" />
                   <span>Running...</span>
                 </div>
               ) : (
                 <>
-                  <Play size={22} className="fill-current group-hover:scale-110 transition-transform" />
-                  <span className="ml-2 uppercase tracking-widest text-base">All Platforms</span>
+                  <Sparkles size={22} className="fill-current group-hover:scale-110 transition-transform" />
+                  <span className="ml-2 uppercase tracking-widest text-base">Run Content Cycle</span>
                 </>
               )}
             </button>
-            <button
-              onClick={() => runFramerMutation.mutate()}
-              disabled={runPipelineMutation.isPending || runFramerMutation.isPending || !!currentRun}
-              className="group h-16 px-10 text-lg font-black rounded-[1.5rem] border-2 border-amethyst/40 bg-amethyst/10 text-amethyst hover:bg-amethyst/20 hover:border-amethyst/60 transition-all disabled:opacity-50"
-            >
-              {runFramerMutation.isPending ? (
-                <div className="flex items-center gap-3">
-                  <Spinner size={22} />
-                  <span>Running...</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Globe size={22} />
-                  <span className="uppercase tracking-widest text-base">Framer CMS</span>
-                </div>
-              )}
-            </button>
-            {currentRun && currentRun.status === 'running' && (
+
+            {(isCompleted || isFailed) && (
               <button
-                onClick={() => cancelPipelineMutation.mutate(currentRun.id)}
-                disabled={cancelPipelineMutation.isPending}
-                className="h-16 px-8 font-black text-lg rounded-[1.5rem] border-2 border-error/40 bg-error/10 text-error hover:bg-error/20 hover:border-error/60 transition-all disabled:opacity-50"
+                onClick={() => resetCycleMut.mutate()}
+                className={`flex items-center gap-2 h-16 px-6 rounded-[1.5rem] border text-sm font-bold uppercase tracking-wider transition-all ${
+                  isDarkMode ? 'border-graphite/40 text-dim hover:text-silver hover:bg-white/5' : 'border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-100'
+                }`}
               >
-                {cancelPipelineMutation.isPending ? (
-                  <div className="flex items-center gap-2">
-                    <Spinner size={20} />
-                    <span>Stopping...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <StopCircle size={20} />
-                    <span>Stop Pipeline</span>
-                  </div>
-                )}
+                <RotateCcw size={16} /> Reset
               </button>
             )}
           </div>
         </div>
       </section>
 
-      {/* Real-time pipeline progress */}
-      <AnimatePresence>
-        {currentRun && currentRun.status === 'running' && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className={`rounded-[2rem] border p-8 backdrop-blur-3xl ${
-              isDarkMode
-                ? 'border-volt/40 bg-volt/5'
-                : 'border-volt/30 bg-volt/10 shadow-2xl shadow-volt/10'
-            }`}
-          >
-            <h2 className="text-2xl font-bold mb-6 text-text-primary">Pipeline in Progress</h2>
-            <PipelineMonitor run={currentRun} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Quick stats grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <QuickStatItem
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <StatCard
           icon={Newspaper}
           label="Articles"
           value={status?.articles ?? 0}
@@ -200,15 +169,15 @@ export function Dashboard() {
           onClick={() => navigate('/news')}
           color="volt"
         />
-        <QuickStatItem
-          icon={PenTool}
+        <StatCard
+          icon={FileText}
           label="Drafts"
           value={status?.drafts ?? 0}
-          subtext="Ready to publish"
-          onClick={() => navigate('/studio')}
+          subtext="Ready to review"
+          onClick={() => navigate('/drafts')}
           color="amethyst"
         />
-        <QuickStatItem
+        <StatCard
           icon={Clock}
           label="Scheduled"
           value={status?.pendingSchedules ?? 0}
@@ -216,118 +185,34 @@ export function Dashboard() {
           onClick={() => navigate('/scheduler')}
           color="volt"
         />
-        <QuickStatItem
-          icon={Send}
-          label="Published"
-          value={status?.recentPublishes ?? 0}
-          subtext="This week"
-          onClick={() => navigate('/analytics')}
-          color="success"
-        />
-        <QuickStatItem
-          icon={MessageCircle}
-          label="Messages"
-          value="Inbox"
-          subtext="Comments"
-          onClick={() => navigate('/engagement')}
-          color="amethyst"
-        />
-        <QuickStatItem
-          icon={Bot}
-          label="Auto Reply"
-          value={status?.autoReplyEnabled ? 'On' : 'Off'}
-          subtext="AI responses"
-          onClick={() => navigate('/engagement')}
-          color={status?.autoReplyEnabled ? 'success' : 'dim'}
-        />
       </div>
 
-      <div className="grid gap-10 lg:grid-cols-3">
-        {/* Pipeline History column */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card padding="none" className="overflow-hidden">
-            <div className={`flex items-center justify-between border-b px-8 py-6 ${isDarkMode ? 'border-graphite/40 bg-void/20' : 'border-graphite/20 bg-stellar/30'}`}>
-              <div className="flex items-center gap-3">
-                 <ActivityIcon size={18} className="text-volt" />
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Recent Activity</h3>
+      {/* How it works */}
+      <Card>
+        <h3 className={`text-sm font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-dim' : 'text-muted'}`}>
+          How It Works
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { step: '1', title: 'Fetch 30 Articles', desc: '3 Tavily searches across different legal categories fetch 10 articles each' },
+            { step: '2', title: 'LLM Ranks Top 10', desc: 'AI analyzes all 30 titles and picks the 10 most newsworthy stories' },
+            { step: '3', title: 'Generate 22 Drafts', desc: '2 LinkedIn posts, 10 Framer articles, 10 X threads — each from a separate LLM call' },
+          ].map((item) => (
+            <div key={item.step} className={`rounded-2xl border p-6 ${isDarkMode ? 'border-graphite/40 bg-void/20' : 'border-graphite/20 bg-stellar/30'}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-volt text-void text-sm font-black">{item.step}</div>
+                <h4 className="text-sm font-bold text-main">{item.title}</h4>
               </div>
-              <Badge variant="volt" size="sm" dot>Active</Badge>
+              <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-dim' : 'text-muted'}`}>{item.desc}</p>
             </div>
-            <div className="p-4 space-y-2">
-              <AnimatePresence>
-                {recentRuns.length > 0 ? (
-                  recentRuns.slice(0, 6).map((run) => (
-                    <motion.div
-                      key={run.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className={`group flex items-center gap-6 rounded-[2rem] p-5 transition-all border border-transparent hover:surface-stellar`}
-                    >
-                      <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${
-                        run.status === 'completed' ? 'border-success/30 bg-success/10 text-success' :
-                        run.status === 'failed' ? 'border-danger/30 bg-danger/10 text-danger' :
-                        run.status === 'cancelled' ? 'border-warning/30 bg-warning/10 text-warning' :
-                        'border-volt/30 bg-volt/10 text-volt'
-                      }`}>
-                        {run.status === 'completed' ? <CheckCircle2 size={24} /> :
-                         run.status === 'failed' ? <XCircle size={24} /> :
-                         run.status === 'cancelled' ? <XCircle size={24} /> :
-                         <Spinner size={24} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-sm font-black text-main">CYCLE #D-{run.id.slice(-6).toUpperCase()}</span>
-                          <Badge variant={run.mode === 'auto' ? 'success' : 'volt'} size="sm" className={isDarkMode ? 'bg-void/40' : 'bg-cream'}>
-                            {run.mode}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-5 text-[10px] font-black uppercase tracking-widest text-muted">
-                           <span className="flex items-center gap-2"><Newspaper size={14} className="text-volt" /> {run.articles_ingested} Articles</span>
-                           <span className="flex items-center gap-2"><PenTool size={14} className="text-amethyst" /> {run.drafts_generated} Drafts</span>
-                           <span className="flex items-center gap-2"><Send size={14} className="text-success" /> {run.posts_published} Published</span>
-                        </div>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <span className={`text-[10px] font-black block mb-1 uppercase ${
-                          run.status === 'completed' ? 'text-success' :
-                          run.status === 'failed' ? 'text-danger' :
-                          run.status === 'cancelled' ? 'text-warning' :
-                          'text-volt'
-                        }`}>{run.status}</span>
-                        <span className="text-xs font-black text-muted">
-                          {run.started_at ? new Date(run.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))
-                ) : (
-                  <div className="py-24 text-center">
-                    <div className="mb-6 flex justify-center">
-                        <div className={`p-6 rounded-full border ${isDarkMode ? 'bg-graphite/10 text-graphite/40 border-graphite/40' : 'bg-stellar/30 text-muted border-graphite/20'}`}>
-                            <ActivityIcon size={48} />
-                        </div>
-                    </div>
-                    <p className="text-xs font-black text-muted uppercase tracking-[0.3em]">No Recent Activity</p>
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-            {recentRuns.length > 0 && (
-                <div className={`p-5 border-t text-center ${isDarkMode ? 'bg-void/20 border-graphite/40' : 'bg-stellar/30 border-graphite/20'}`}>
-                    <button onClick={() => navigate('/analytics')} className="text-[10px] font-black uppercase tracking-[0.2em] text-volt hover:underline">
-                        View All Activity
-                    </button>
-                </div>
-            )}
-          </Card>
+          ))}
         </div>
-
-      </div>
+      </Card>
     </div>
   )
 }
 
-function QuickStatItem({
+function StatCard({
   icon: Icon,
   label,
   value,
@@ -340,78 +225,32 @@ function QuickStatItem({
   value: string | number
   subtext: string
   onClick?: () => void
-  color?: 'volt' | 'amethyst' | 'success' | 'dim'
+  color?: 'volt' | 'amethyst'
 }) {
   const isDarkMode = useUIStore((state) => state.isDarkMode)
   const mappings = {
     volt: { icon: 'bg-volt/10 text-volt', border: 'hover:border-volt/40' },
-    amethyst: { icon: 'bg-amethyst/10 text-amethyst', border: 'hover:border-amethyst/40' },
-    success: { icon: 'bg-success/10 text-success', border: 'hover:border-success/40' },
-    dim: { icon: 'bg-graphite/20 text-dim', border: 'hover:border-graphite/40' }
+    amethyst: { icon: 'bg-amethyst/10 text-amethyst', border: 'hover:border-amethyst/40' }
   }
-
-  const current = mappings[color] ?? mappings.dim
+  const current = mappings[color] ?? mappings.volt
 
   return (
     <motion.button
-      whileHover={{ y: -6, scale: 1.02 }}
+      whileHover={{ y: -4, scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-            className={`group flex flex-col items-start gap-6 rounded-[2.5rem] border p-8 text-left transition-all duration-500 overflow-hidden ${current.border} ${
-              isDarkMode 
-                ? 'border-graphite/40 bg-stellar/10' 
-                : 'border-graphite/20 bg-cream shadow-xl shadow-ink/5'
-            }`}
+      className={`group flex flex-col items-start gap-4 rounded-[2rem] border p-8 text-left transition-all duration-300 ${current.border} ${
+        isDarkMode ? 'border-graphite/40 bg-stellar/10' : 'border-graphite/20 bg-cream shadow-xl shadow-ink/5'
+      }`}
     >
-      <div className={`rounded-2xl p-4 transition-all duration-300 group-hover:scale-110 shadow-sm ${current.icon}`}>
-        <Icon size={28} />
+      <div className={`rounded-2xl p-3 transition-all duration-300 group-hover:scale-110 ${current.icon}`}>
+        <Icon size={24} />
       </div>
       <div>
-        <p className={`text-4xl font-serif font-bold tracking-tight mb-2 text-main`}>{value}</p>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 text-muted">{label}</p>
+        <p className="text-3xl font-serif font-bold tracking-tight mb-1 text-main">{value}</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">{label}</p>
         <p className="text-[10px] font-bold text-muted/60">{subtext}</p>
       </div>
     </motion.button>
-  )
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function ActionButton({
-  icon: Icon, 
-  label, 
-  desc, 
-  onClick, 
-  color 
-}: { 
-  icon: React.ElementType; 
-  label: string; 
-  desc: string; 
-  onClick: () => void; 
-  color: 'volt' | 'amethyst' | 'success' 
-}) {
-  const isDarkMode = useUIStore((state) => state.isDarkMode)
-  const colors = {
-    volt: 'bg-volt/10 text-volt group-hover:bg-volt group-hover:shadow-glow-volt',
-    amethyst: 'bg-amethyst/10 text-amethyst group-hover:bg-amethyst group-hover:shadow-glow-amethyst',
-    success: 'bg-success/10 text-success group-hover:bg-success group-hover:shadow-glow-success',
-  }
-  return (
-    <button 
-      onClick={onClick}
-      className={`group flex w-full items-center gap-6 rounded-[2rem] border p-6 transition-all duration-500 hover:translate-x-1 ${
-        isDarkMode 
-          ? 'border-graphite/40 bg-void/30 hover:border-volt/30 hover:bg-void/50 shadow-none' 
-          : 'border-graphite/20 bg-stellar/30 hover:border-volt/30 hover:bg-cream shadow-sm hover:shadow-xl hover:shadow-ink/5'
-      }`}
-    >
-      <div className={`shrink-0 rounded-[1.25rem] p-4 transition-all duration-500 ${colors[color]} group-hover:text-white`}>
-        <Icon size={24} />
-      </div>
-      <div className="text-left flex-1">
-        <p className="text-xs font-black uppercase tracking-widest mb-1 text-main transition-colors group-hover:text-volt">{label}</p>
-        <p className="text-[11px] font-medium text-muted">{desc}</p>
-      </div>
-      <ArrowRight size={20} className={`ml-auto opacity-0 -translate-x-4 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 ${isDarkMode ? 'text-dim/40 group-hover:text-volt' : 'text-muted group-hover:text-volt'}`} />
-    </button>
   )
 }

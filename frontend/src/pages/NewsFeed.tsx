@@ -1,24 +1,17 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ExternalLink, RefreshCw, Sparkles, X, Trash2,
+  ExternalLink, Trash2,
   Loader2, Flame, Calendar,
-  LayoutGrid, List, Search as SearchIcon, ChevronDown,
-  FileText, Clock,
+  LayoutGrid, List, Search as SearchIcon,
+  FileText, Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 import { api } from '../lib/api';
-import type { Article, PaginatedResponse } from '../types';
-
-const TIME_PRESETS = [
-  { label: '24h', days: 1 },
-  { label: '2 days', days: 2 },
-  { label: '3 days', days: 3 },
-  { label: '1 week', days: 7 },
-];
+import type { Article } from '../types';
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return 'Recently';
@@ -37,11 +30,6 @@ function timeAgo(dateStr: string | null): string {
   }
 }
 
-function fmtDate(iso?: string | null) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 export function NewsFeed() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -51,14 +39,9 @@ export function NewsFeed() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [modalArticle, setModalArticle] = useState<Article | null>(null);
 
-  // Ingest options
-  const [ingestOpen, setIngestOpen] = useState(false);
-  const [ingestDays, setIngestDays] = useState(1);
-  const [ingestQuery, setIngestQuery] = useState('Supreme Court India judgment');
-
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['articles', 'feed', sortBy],
-    queryFn: () => api.listArticles(1, 100, undefined, sortBy, 'desc', false),
+    queryKey: ['articles', sortBy],
+    queryFn: () => api.listArticles(1, 200),
     refetchInterval: 30000,
   });
 
@@ -73,46 +56,21 @@ export function NewsFeed() {
       );
     }
     if (sortBy === 'virality') {
-      items = [...items].sort((a, b) =>
+      items = [...items].sort((a: Article, b: Article) =>
         (b.content_intelligence?.virality_score ?? 0) - (a.content_intelligence?.virality_score ?? 0)
       );
     }
     return items;
   }, [data, search, sortBy]);
 
-  const ingestMut = useMutation({
-    mutationFn: () => api.ingest({ days_back: ingestDays, query: ingestQuery }),
-    onSuccess: r => {
-      toast.success(`Ingested ${r.upserted} new article(s)`);
-      qc.invalidateQueries({ queryKey: ['articles'] });
-      setIngestOpen(false);
-    },
-    onError: (e: Error) => toast.error(e.message || 'Ingest failed'),
-  });
-
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.deleteArticle(id),
     onSuccess: (_, id) => {
       toast.success('Article deleted');
-      qc.setQueryData<PaginatedResponse<Article>>(['articles', 'feed'], (old) =>
-        old ? { ...old, items: old.items.filter((a) => a.id !== id) } : old
-      );
+      qc.invalidateQueries({ queryKey: ['articles'] });
       if (modalArticle?.id === id) setModalArticle(null);
     },
     onError: (e: Error) => toast.error(e.message || 'Delete failed'),
-  });
-
-  const fetchContentMut = useMutation({
-    mutationFn: (id: string) => api.fetchFullContent(id),
-    onSuccess: (data) => {
-      toast.success('Full content fetched');
-      qc.invalidateQueries({ queryKey: ['articles'] });
-      // Update modal article if open
-      if (modalArticle?.id === data.article_id) {
-        setModalArticle(a => a ? { ...a, full_content: data.full_content, full_content_fetched: true } : a);
-      }
-    },
-    onError: (e: Error) => toast.error(e.message || 'Failed to fetch content'),
   });
 
   return (
@@ -123,81 +81,16 @@ export function NewsFeed() {
           <div>
             <h1 className="text-xl font-semibold text-white">News Feed</h1>
             <p className="text-sm text-gray-400 mt-0.5">
-              {articles.length} selected article{articles.length !== 1 ? 's' : ''} ready for content generation
+              {articles.length} article{articles.length !== 1 ? 's' : ''} — run a content cycle from Dashboard to generate drafts
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/news-search')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition-colors"
-            >
-              <SearchIcon className="w-4 h-4" /> Search News
-            </button>
-            <button
-              onClick={() => setIngestOpen(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${ingestMut.isPending ? 'animate-spin' : ''}`} />
-              Ingest
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-1.5 px-3 py-2 bg-volt hover:bg-volt/90 text-void rounded-lg text-sm font-bold transition-colors"
+          >
+            <Sparkles className="w-4 h-4" /> Run Content Cycle
+          </button>
         </div>
-
-        {/* Ingest options dropdown */}
-        <AnimatePresence>
-          {ingestOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-3 bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3 overflow-hidden"
-            >
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-400 mb-1 block">Query</label>
-                  <input
-                    type="text"
-                    value={ingestQuery}
-                    onChange={e => setIngestQuery(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Time range</label>
-                  <div className="flex gap-1.5">
-                    {TIME_PRESETS.map(p => (
-                      <button
-                        key={p.days}
-                        onClick={() => setIngestDays(p.days)}
-                        className={`px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${
-                          ingestDays === p.days
-                            ? 'bg-violet-600 text-white'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setIngestOpen(false)} className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1.5">
-                  Cancel
-                </button>
-                <button
-                  onClick={() => ingestMut.mutate()}
-                  disabled={ingestMut.isPending}
-                  className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg"
-                >
-                  {ingestMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  Fetch Articles
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Toolbar */}
@@ -234,7 +127,7 @@ export function NewsFeed() {
       <div className="flex-1 overflow-auto px-6 py-4">
         {isLoading && (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-violet-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-volt" />
           </div>
         )}
 
@@ -248,31 +141,29 @@ export function NewsFeed() {
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
             <FileText className="w-12 h-12 text-gray-700" />
             <div>
-              <p className="text-gray-400 font-medium">No articles in your feed</p>
+              <p className="text-gray-400 font-medium">No articles yet</p>
               <p className="text-gray-600 text-sm mt-1">
-                Use <span className="text-violet-400">Search News</span> to find articles and add them here,
-                or click <span className="text-violet-400">Ingest</span> to auto-fetch latest legal news.
+                Go to Dashboard and click <span className="text-volt font-bold">Run Content Cycle</span> to fetch and rank articles.
               </p>
             </div>
             <button
-              onClick={() => navigate('/news-search')}
-              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-2 bg-volt hover:bg-volt/90 text-void px-4 py-2 rounded-lg text-sm font-bold"
             >
-              <SearchIcon className="w-4 h-4" /> Search News
+              <Sparkles className="w-4 h-4" /> Go to Dashboard
             </button>
           </div>
         )}
 
         {!isLoading && articles.length > 0 && (
           <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-2'}>
-            {articles.map(article => (
+            {articles.map((article: Article) => (
               <FeedArticleCard
                 key={article.id}
                 article={article}
                 layout={viewMode}
                 onClick={() => setModalArticle(article)}
                 onDelete={() => deleteMut.mutate(article.id)}
-                onGenerate={() => navigate(`/studio?article_id=${article.id}`)}
                 isDeleting={deleteMut.isPending && deleteMut.variables === article.id}
               />
             ))}
@@ -286,27 +177,13 @@ export function NewsFeed() {
           <ArticleModal
             article={modalArticle}
             onClose={() => setModalArticle(null)}
-            onGenerate={() => { setModalArticle(null); navigate(`/studio?article_id=${modalArticle.id}`); }}
             onDelete={() => { deleteMut.mutate(modalArticle.id); }}
-            onFetchContent={() => fetchContentMut.mutate(modalArticle.id)}
-            isFetching={fetchContentMut.isPending}
             isDeleting={deleteMut.isPending}
           />
         )}
       </AnimatePresence>
     </div>
   );
-}
-
-// ── Feed Card ──────────────────────────────────────────────────────────────────
-
-interface FeedCardProps {
-  article: Article;
-  layout: 'grid' | 'list';
-  onClick: () => void;
-  onDelete: () => void;
-  onGenerate: () => void;
-  isDeleting: boolean;
 }
 
 const TAG_STYLES: Record<string, string> = {
@@ -325,7 +202,15 @@ const ArticleTag: React.FC<{ tag: string }> = ({ tag }) => {
   )
 }
 
-const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, onDelete, onGenerate, isDeleting }) => {
+interface FeedCardProps {
+  article: Article;
+  layout: 'grid' | 'list';
+  onClick: () => void;
+  onDelete: () => void;
+  isDeleting: boolean;
+}
+
+const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, onDelete, isDeleting }) => {
   const virality = article.content_intelligence?.virality_score ?? 0;
   const viralityPct = Math.round(virality * 100);
 
@@ -351,7 +236,7 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              className="text-xs text-violet-400 hover:text-violet-300 font-medium flex items-center gap-0.5"
+              className="text-xs text-volt hover:text-volt/80 font-medium flex items-center gap-0.5"
             >
               {article.source} <ExternalLink className="w-2.5 h-2.5" />
             </a>
@@ -367,13 +252,6 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={onGenerate}
-            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors"
-            title="Generate content"
-          >
-            <Sparkles className="w-4 h-4" />
-          </button>
           <button
             onClick={onDelete}
             disabled={isDeleting}
@@ -408,7 +286,7 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
             target="_blank"
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
-            className="text-xs text-violet-400 hover:text-violet-300 font-medium flex items-center gap-0.5"
+            className="text-xs text-volt hover:text-volt/80 font-medium flex items-center gap-0.5"
           >
             {article.source} <ExternalLink className="w-2.5 h-2.5" />
           </a>
@@ -424,12 +302,6 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
         </div>
         <div className="flex gap-2 mt-3 pt-2 border-t border-gray-800 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
           <button
-            onClick={onGenerate}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded-lg text-xs transition-colors"
-          >
-            <Sparkles className="w-3 h-3" /> Generate
-          </button>
-          <button
             onClick={onDelete}
             disabled={isDeleting}
             className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
@@ -442,19 +314,14 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
   );
 };
 
-// ── Article Modal ──────────────────────────────────────────────────────────────
-
 interface ModalProps {
   article: Article;
   onClose: () => void;
-  onGenerate: () => void;
   onDelete: () => void;
-  onFetchContent: () => void;
-  isFetching: boolean;
   isDeleting: boolean;
 }
 
-const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDelete, onFetchContent, isFetching, isDeleting }) => {
+const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onDelete, isDeleting }) => {
   const virality = article.content_intelligence?.virality_score ?? 0;
   const insights = article.content_intelligence?.key_insights ?? [];
 
@@ -473,7 +340,6 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDe
         onClick={e => e.stopPropagation()}
         className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
       >
-        {/* Modal header */}
         <div className="flex items-start justify-between p-5 border-b border-gray-800">
           <div className="flex-1 min-w-0 pr-4">
             <h2 className="text-base font-semibold text-white leading-snug">{article.title}</h2>
@@ -482,13 +348,13 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDe
                 href={article.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-0.5 font-medium"
+                className="text-xs text-volt hover:text-volt/80 flex items-center gap-0.5 font-medium"
               >
                 {article.source} <ExternalLink className="w-3 h-3" />
               </a>
               <span className="text-xs text-gray-500 flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {fmtDate(article.published_at)}
+                {article.published_at ? new Date(article.published_at).toLocaleDateString() : 'Unknown'}
               </span>
               {virality > 0 && (
                 <span className="text-xs text-amber-400 flex items-center gap-0.5">
@@ -499,11 +365,10 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDe
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg shrink-0">
-            <X className="w-4 h-4" />
+            <span className="text-lg">×</span>
           </button>
         </div>
 
-        {/* Modal body */}
         <div className="flex-1 overflow-auto p-5 space-y-4">
           {article.image_url && (
             <img
@@ -520,7 +385,7 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDe
               <ul className="space-y-1">
                 {insights.map((insight, i) => (
                   <li key={i} className="flex gap-2 text-sm text-gray-300">
-                    <span className="text-violet-400 shrink-0">•</span>
+                    <span className="text-volt shrink-0">•</span>
                     {insight}
                   </li>
                 ))}
@@ -529,21 +394,7 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDe
           )}
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                {article.full_content_fetched ? 'Full Content' : 'Preview'}
-              </p>
-              {!article.full_content_fetched && (
-                <button
-                  onClick={onFetchContent}
-                  disabled={isFetching}
-                  className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300"
-                >
-                  {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clock className="w-3 h-3" />}
-                  Fetch full content
-                </button>
-              )}
-            </div>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Content</p>
             <div className="bg-gray-800/50 rounded-xl p-4 max-h-64 overflow-auto">
               <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
                 {article.full_content || article.raw_excerpt || article.summary_hint || 'No content available.'}
@@ -552,7 +403,6 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDe
           </div>
         </div>
 
-        {/* Modal footer */}
         <div className="flex items-center justify-between p-4 border-t border-gray-800 gap-3">
           <button
             onClick={onDelete}
@@ -562,26 +412,16 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onGenerate, onDe
             <Trash2 className="w-4 h-4" />
             Delete
           </button>
-          <div className="flex items-center gap-2">
-            <a
-              href={article.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" /> Source
-            </a>
-            <button
-              onClick={onGenerate}
-              className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <Sparkles className="w-4 h-4" /> Generate Content →
-            </button>
-          </div>
+          <a
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" /> Source
+          </a>
         </div>
       </motion.div>
     </motion.div>
   );
 };
-
-export default NewsFeed;

@@ -1,15 +1,13 @@
 import hashlib
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-import httpx
+from exa_py import Exa
 
 from app.core.config import Settings
 from app.models.article import NormalizedArticle
 
 log = logging.getLogger(__name__)
-
-TAVILY_SEARCH_URL = "https://api.tavily.com/search"
 
 LEGAL_SOURCES = [
     "livelaw.in",
@@ -22,7 +20,26 @@ LEGAL_SOURCES = [
 ]
 
 PDF_EXTENSIONS = (".pdf", ".PDF")
-PDF_INDICATORS = ["pdf", "/pdf/", "document/", "file/"]
+PDF_INDICATORS = ["/pdf/", "/document/", "/file/"]
+
+INDEX_PATTERNS = [
+    "/archives", "/archive/", "/page/2", "/page/3", "/page/4", "/page/5",
+    "/category/", "/categories/", "/tag/", "/tags/", "/topics/", "/topic/",
+    "/feed", "/rss", "/latest-news/", "/legal-news/",
+    "/supreme-court/", "/high-court/", "/case-status",
+    "/all-news", "/all-stories", "/top-stories",
+    "/recent-news", "/recent-updates",
+    "/year-ender", "/roundup", "/round-up", "/compilation",
+    "/digest", "/weekly-digest", "/monthly-digest",
+    "/know-thy-judge", "/judge-profile",
+    "/digit-latest-news", "/recent-digit-updates",
+    "/civil-courts-vs-nclt", "/nclt-jurisdiction",
+    "/legal-mantra", "/brought-to-you-by",
+    "/corporate-legal-news", "/corporate-litigation",
+    "/fundamental-right-archives",
+    "/shrinking-realm", "/budget-", "/union-budget", "/finance-minister",
+    "/latest-supreme-court-news", "/latest-supreme-court-judgments",
+]
 
 
 def _is_pdf(url: str) -> bool:
@@ -33,83 +50,23 @@ def _is_pdf(url: str) -> bool:
     return False
 
 
-def search_tavily(
-    settings: Settings,
-    query: str,
-    max_results: int = 10,
-    days_back: int = 3,
-) -> list[NormalizedArticle]:
-    """Search Tavily for legal news articles. Filters out PDFs."""
-    if not settings.tavily_api_key:
-        raise ValueError("TAVILY_API_KEY not configured")
+def _is_index_page(url: str, title: str) -> bool:
+    url_lower = url.lower()
+    title_lower = title.lower()
 
-    now = datetime.now(UTC)
-    start_date = (now - timedelta(days=days_back)).strftime("%Y-%m-%d")
+    for pattern in INDEX_PATTERNS:
+        if pattern in url_lower:
+            log.debug("Index page detected (URL '%s'): %s", pattern, url[:80])
+            return True
 
-    payload = {
-        "api_key": settings.tavily_api_key,
-        "query": query[:395],
-        "search_depth": "advanced",
-        "topic": "general",
-        "include_answer": True,
-        "max_results": max_results,
-        "include_images": True,
-        "include_raw_content": True,
-        "include_domains": LEGAL_SOURCES,
-        "days": days_back,
-    }
+    if title_lower.startswith("latest ") and ("news" in title_lower or "judgments" in title_lower):
+        return True
 
-    try:
-        with httpx.Client(timeout=30.0) as client:
-            r = client.post(TAVILY_SEARCH_URL, json=payload)
-            r.raise_for_status()
-            data = r.json()
-            raw_results = data.get("results") or []
-    except Exception:
-        log.exception("Tavily search failed for query: %s", query[:50])
-        return []
+    word_count = len(title.split())
+    if word_count < 3:
+        return True
 
-    raw_images = data.get("images") or []
-    top_images = [
-        img if isinstance(img, str) else img.get("url", "")
-        for img in raw_images
-        if (img if isinstance(img, str) else img.get("url", ""))
-    ]
-
-    out: list[NormalizedArticle] = []
-    for idx, item in enumerate(raw_results):
-        url = (item.get("url") or "").strip()
-        title = (item.get("title") or "").strip()
-
-        if not url or not title:
-            continue
-        if _is_pdf(url):
-            continue
-
-        content = item.get("raw_content") or item.get("content") or ""
-        if len(content) < 200:
-            continue
-
-        aid = hashlib.sha256(f"tavily|{url}".encode()).hexdigest()[:32]
-        image_url = item.get("image") or (top_images[idx] if idx < len(top_images) else None)
-
-        out.append(
-            NormalizedArticle(
-                id=aid,
-                source=_domain_to_source(url),
-                title=title,
-                url=url,
-                summary_hint=content[:600],
-                full_content=content[:8000],
-                full_content_fetched=True,
-                fetched_at=now,
-                kind="tavily",
-                image_url=image_url,
-            )
-        )
-
-    log.info("Tavily found %d articles for: %s", len(out), query[:40])
-    return out
+    return False
 
 
 def _domain_to_source(url: str) -> str:
@@ -126,4 +83,81 @@ def _domain_to_source(url: str) -> str:
     for domain, name in domain_map.items():
         if domain in url:
             return name
-    return "Tavily"
+    return "Exa"
+
+
+async def search_exa_async(
+    settings: Settings,
+    query: str,
+    max_results: int = 10,
+    days_back: int = 3,
+) -> list[NormalizedArticle]:
+    """Search Exa for legal news articles. Returns full content with highlights."""
+    now = datetime.now(UTC)
+    log.info("Exa search: %s (max_results=%d, days=%d)", query[:60], max_results, days_back)
+
+    exa = Exa(api_key="fc88c96e-6d4d-47ad-b042-9a98e1e4724e")
+
+    try:
+        results = exa.search_and_contents(
+            query,
+            type="auto",
+            num_results=max_results * 2,
+            include_domains=LEGAL_SOURCES,
+            highlights={"max_characters": 4000},
+        )
+        raw_results = results.results or []
+    except Exception:
+        log.exception("Exa search failed for query: %s", query[:50])
+        return []
+
+    out: list[NormalizedArticle] = []
+    skipped_index = 0
+    skipped_pdf = 0
+
+    for item in raw_results:
+        url = (getattr(item, "url") or "").strip()
+        title = (getattr(item, "title") or "").strip()
+
+        if not url or not title:
+            continue
+
+        if _is_pdf(url):
+            skipped_pdf += 1
+            continue
+
+        if _is_index_page(url, title):
+            skipped_index += 1
+            continue
+
+        highlights = getattr(item, "highlights", None) or []
+        content = "\n\n".join(highlights) if highlights else (getattr(item, "text", "") or "")
+
+        if len(content) < 200:
+            continue
+
+        aid = hashlib.sha256(f"exa|{url}".encode()).hexdigest()[:32]
+
+        out.append(
+            NormalizedArticle(
+                id=aid,
+                source=_domain_to_source(url),
+                title=title,
+                url=url,
+                summary_hint=content[:600],
+                full_content=content[:8000],
+                full_content_fetched=True,
+                fetched_at=now,
+                kind="tavily",
+                image_url=getattr(item, "image", None),
+            )
+        )
+
+        if len(out) >= max_results:
+            break
+
+    log.info(
+        "Exa: %d articles kept, %d index pages skipped, %d PDFs skipped",
+        len(out), skipped_index, skipped_pdf,
+    )
+    return out

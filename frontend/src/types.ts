@@ -1,5 +1,49 @@
 export type Platform = 'linkedin' | 'x' | 'framer'
 
+export type PaginatedResponse<T> = {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export type PipelineStep = {
+  step: string
+  status: string
+  at: string
+}
+
+export type PipelineRun = {
+  id: string
+  started_at: string
+  finished_at: string | null
+  mode: string
+  status: string
+  articles_ingested: number
+  drafts_generated: number
+  posts_published: number
+  error: string | null
+  steps: PipelineStep[]
+}
+
+export type PipelineStatus = {
+  mode: string
+  current_run: PipelineRun | null
+  recent_runs: PipelineRun[]
+}
+
+export type StatusFeed = {
+  at: string
+  articles: number
+  drafts: number
+  pendingSchedules: number
+  recentPublishes: number
+  pipelineMode: string
+  pipelineRunning: boolean
+  currentRun: PipelineRun | null
+}
+
 export type ContentIntelligence = {
   topic: string
   legal_area: string
@@ -84,12 +128,4 @@ export type CostSummary = {
   total_calls: number
   by_api: Record<string, { cost_usd: number; cost_inr: number; calls: number }>
   by_model: Record<string, { cost_usd: number; cost_inr: number; calls: number }>
-}
-
-export type StatusFeed = {
-  at: string
-  articles: number
-  drafts: number
-  pendingSchedules: number
-  recentPublishes: number
 }
