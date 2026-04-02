@@ -70,7 +70,7 @@ def publish(draft: ContentDraft, settings: Settings, as_draft: bool = False) -> 
         fields = {
             "title": draft.summary or "Legal Update",
             "excerpt": draft.body[:200] if draft.body else "",
-            "content": draft.body or "",
+            "body_md": draft.body or "",
             "type": "news",
             "categories": [],
             "sources": [],
@@ -82,16 +82,17 @@ def publish(draft: ContentDraft, settings: Settings, as_draft: bool = False) -> 
         fields = {
             "title": fd.get("Title") or fd.get("Heading") or draft.summary or "Legal Update",
             "excerpt": fd.get("Excerpt") or fd.get("SubHeading") or "",
-            "content": fd.get("Content") or "",
+            "body_md": fd.get("Content") or fd.get("body_md") or "",
             "type": "news",
             "categories": [],
             "sources": [],
+            "image_url": fields.get("image_url"),
         }
 
-    # Extract fields
+    # Extract fields — handle both "content" (old) and "body_md" (new) keys
     title = html.unescape(fields.get("title") or "Legal Update")
     excerpt = html.unescape(fields.get("excerpt") or "")
-    content_html = fields.get("content") or "<p>Content not available</p>"
+    content_html = fields.get("body_md") or fields.get("content") or "<p>Content not available</p>"
     categories = fields.get("categories") or []
     sources = fields.get("sources") or []
     content_type = fields.get("type") or "news"

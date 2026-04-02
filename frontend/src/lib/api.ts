@@ -96,7 +96,7 @@ export const api = {
     request<Schedule>(`/schedule/${scheduleId}`, { method: 'DELETE' }),
 
   // Costs
-  getCostRecords: (limit = 200) => request<CostRecord[]>(`/costs?limit=${limit}`),
+  getCostRecords: (limit = 200) => request<{ items: CostRecord[]; total: number }>(`/costs?limit=${limit}`),
   getCostSummary: () => request<CostSummary>('/costs/summary'),
 }
 

@@ -13,10 +13,7 @@ LEGAL_SOURCES = [
     "livelaw.in",
     "barandbench.com",
     "economictimes.indiatimes.com",
-    "indialegallive.com",
-    "scconline.com",
-    "lawstreet.in",
-    "thehindu.com",
+    "indialegallive.com"
 ]
 
 PDF_EXTENSIONS = (".pdf", ".PDF")
@@ -74,11 +71,7 @@ def _domain_to_source(url: str) -> str:
         "livelaw.in": "LiveLaw",
         "barandbench.com": "Bar and Bench",
         "economictimes.indiatimes.com": "ET Legal",
-        "indiankanoon.org": "Indian Kanoon",
-        "indialegallive.com": "IndiaLegalLive",
-        "scconline.com": "SCC Online",
-        "lawstreet.in": "LawStreet",
-        "thehindu.com": "The Hindu",
+        "indialegallive.com": "IndiaLegalLive"
     }
     for domain, name in domain_map.items():
         if domain in url:

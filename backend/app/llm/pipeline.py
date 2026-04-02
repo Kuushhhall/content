@@ -95,7 +95,7 @@ Example:
     return selected_ids[:10]
 
 
-async def generate_linkedin_post(article: NormalizedArticle, settings: Settings) -> str:
+async def generate_linkedin_post(article: NormalizedArticle, settings: Settings, cycle_id: str, store: StateStore) -> str:
     """Generate a single LinkedIn post for an article."""
     content = article.full_content or article.summary_hint or article.title
     prompt = f"""You are "Lawxy Times Reporter" — sharp, analytical, with dry wit.
@@ -146,11 +146,12 @@ Content:
 
 Write only the post body. Double line breaks between EVERY sentence."""
 
-    body = await _complete(settings, GENERATOR_SYSTEM_PROMPT, prompt)
+    body, usage = await _complete_with_usage(settings, GENERATOR_SYSTEM_PROMPT, prompt)
+    store.record_llm_cost(cycle_id, settings.llm_model or "unknown", "linkedin_post", usage)
     return _enforce_staircase_spacing(body)
 
 
-async def generate_framer_content(article: NormalizedArticle, settings: Settings) -> dict:
+async def generate_framer_content(article: NormalizedArticle, settings: Settings, cycle_id: str, store: StateStore) -> dict:
     """Generate Framer CMS article content as JSON."""
     content = article.full_content or article.summary_hint or article.title
     prompt = f"""You are "Lawxy Times Reporter" — a sharp legal mind with dry wit.
@@ -206,6 +207,8 @@ OUTPUT FORMAT - STRICT JSON ONLY:
   "sources": [{{"title": "Source Name", "url": "{article.url}"}}]
 }}
 
+Note: The article has an image available at: {article.image_url or "No image available"}
+
 Rules for body_md:
 - Use Markdown formatting (NOT HTML)
 - 500-800 words total
@@ -218,7 +221,8 @@ Rules for body_md:
 
 Return ONLY valid JSON. No markdown blocks, no explanation."""
 
-    raw = await _complete(settings, GENERATOR_SYSTEM_PROMPT, prompt)
+    raw, usage = await _complete_with_usage(settings, GENERATOR_SYSTEM_PROMPT, prompt)
+    store.record_llm_cost(cycle_id, settings.llm_model or "unknown", "framer_post", usage)
     parsed = _extract_json_block(raw)
     try:
         data = json.loads(parsed)
@@ -241,7 +245,7 @@ Return ONLY valid JSON. No markdown blocks, no explanation."""
         }
 
 
-async def generate_x_thread(article: NormalizedArticle, settings: Settings) -> str:
+async def generate_x_thread(article: NormalizedArticle, settings: Settings, cycle_id: str, store: StateStore) -> str:
     """Generate an X/Twitter thread (3-5 tweets) separated by ---."""
     content = article.full_content or article.summary_hint or article.title
     prompt = f"""You are "Lawxy Times Reporter" — creating sharp, insightful legal threads for X.
@@ -271,7 +275,8 @@ Content: {content[:3000]}
 
 Write the thread. Just the tweets separated by ---."""
 
-    body = await _complete(settings, GENERATOR_SYSTEM_PROMPT, prompt)
+    body, usage = await _complete_with_usage(settings, GENERATOR_SYSTEM_PROMPT, prompt)
+    store.record_llm_cost(cycle_id, settings.llm_model or "unknown", "x_thread", usage)
     parts = [p.strip() for p in body.split("---")]
     parts = [p for p in parts if p]
     formatted = []
@@ -328,12 +333,14 @@ async def generate_and_save_draft(
     log.info("[%s] Generating %s draft for: %s", cycle_id, platform, article.title[:60])
 
     if platform == "linkedin":
-        body = await generate_linkedin_post(article, settings)
+        body = await generate_linkedin_post(article, settings, cycle_id, store)
     elif platform == "framer":
-        data = await generate_framer_content(article, settings)
+        data = await generate_framer_content(article, settings, cycle_id, store)
+        if article.image_url:
+            data["image_url"] = article.image_url
         body = json.dumps(data)
     elif platform == "x":
-        body = await generate_x_thread(article, settings)
+        body = await generate_x_thread(article, settings, cycle_id, store)
     else:
         raise ValueError(f"Unknown platform: {platform}")
 

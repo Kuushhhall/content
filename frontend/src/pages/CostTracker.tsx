@@ -32,11 +32,13 @@ export default function CostTracker() {
     refetchInterval: 30_000,
   })
 
-  const { data: records = [], isLoading: recLoading } = useQuery({
+  const { data: recordsData, isLoading: recLoading } = useQuery({
     queryKey: ['cost-records'],
     queryFn: () => api.getCostRecords(200),
     refetchInterval: 30_000,
   })
+
+  const records = recordsData?.items ?? []
 
   const isLoading = sumLoading || recLoading
 
