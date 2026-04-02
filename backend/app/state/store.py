@@ -54,7 +54,7 @@ class StateStore:
         
         return old_articles
 
-    def list_articles(self) -> list[NormalizedArticle]:
+    def list_articles(self, limit: int = 100) -> list[NormalizedArticle]:
         from datetime import UTC, datetime
 
         def _sort_key(a: NormalizedArticle) -> datetime:
@@ -63,7 +63,8 @@ class StateStore:
                 return dt.replace(tzinfo=UTC)
             return dt.astimezone(UTC)
 
-        return sorted(self._state.articles.values(), key=_sort_key, reverse=True)
+        sorted_articles = sorted(self._state.articles.values(), key=_sort_key, reverse=True)
+        return sorted_articles[:limit]
 
     def get_article(self, article_id: str) -> NormalizedArticle | None:
         return self._state.articles.get(article_id)

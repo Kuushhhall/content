@@ -12,21 +12,27 @@ log = logging.getLogger(__name__)
 
 TAVILY_SEARCH_URL = "https://api.tavily.com/search"
 
-# Top verified Indian legal news sources
+# Verified Indian legal news sources
 LEGAL_SOURCES = [
     "livelaw.in",
     "barandbench.com",
-    "etlegal.com",
-    "indialegal.in",
+    "economictimes.indiatimes.com",
+    "indialegallive.com"
 ]
 
-# High-impact query used for all pipeline ingestion
+
+# High-impact query used for discovery phase
 INGESTION_QUERY = (
-    "Breaking or recent high-impact Indian legal news only: major court decisions, landmark rulings, regulatory enforcement actions, antitrust or corporate litigation, government legal actions, or policy changes with significant economic, political, or societal consequences. Prioritize controversial, precedent-setting, or widely debated cases generating strong public or market reaction."
+    "Indian legal news LiveLaw, Bar and Bench, ET Legal, IndiaLegalLive: "
+    "breaking court rulings, regulatory news, major corporate litigation. "
+    "-inurl:category -inurl:tag -inurl:archive -inurl:author"
 )
 
-# Keep old name as alias for backward compat
-FRAMER_INGESTION_QUERY = INGESTION_QUERY
+# URL patterns to exclude (avoid landing pages/archives)
+EXCLUDE_URL_PATTERNS = [
+    "/category/", "/archive/", "/author/", "/tag/", "/search/", 
+    "/topics/", "/taxonomy/", "/page/", "/about-us/", "/contact-us/"
+]
 
 
 def _extract_date_from_content(content: str, title: str) -> datetime | None:
@@ -52,6 +58,9 @@ def _extract_date_from_content(content: str, title: str) -> datetime | None:
         match = re.search(pattern, text_to_search, re.IGNORECASE)
         if match:
             try:
+                # If extracted content is too short, use fallback
+                if len(content) < 400:  # Increased threshold for proper articles
+                    pass
                 groups = match.groups()
                 if len(groups) == 3:
                     if groups[1].lower() in month_map:
@@ -75,12 +84,12 @@ def _extract_date_from_content(content: str, title: str) -> datetime | None:
 
 def search_legal_news(
     settings: Settings,
-    query: str = "Supreme Court India judgment",
+    query = INGESTION_QUERY,
     search_depth: str = "advanced",
-    max_results: int = 15,
+    max_results: int = 10,
     include_images: bool = True,
     include_domains: list[str] | None = None,
-    days_back: int = 1,
+    days_back: int = 3,
 ) -> list[NormalizedArticle]:
     """Search for Indian legal news via Tavily.
 
@@ -105,14 +114,15 @@ def search_legal_news(
 
     payload = {
         "api_key": settings.tavily_api_key,
-        "query": query,
+        "query": query[:395],  # Tavily limit is 400 chars; safe truncation
         "search_depth": search_depth,
-        "topic": "news",
-        "include_answer": False,
+        "topic": "general",
+        "include_answer": True,
         "max_results": max_results,
         "include_images": include_images,
         "include_raw_content": True,
         "include_domains": domains,
+        
     }
 
     out: list[NormalizedArticle] = []
@@ -121,6 +131,10 @@ def search_legal_news(
             r = client.post(TAVILY_SEARCH_URL, json=payload)
             r.raise_for_status()
             data = r.json()
+            raw_results = data.get("results") or []
+            log.info("Tavily API returned %d raw results for query: %r", len(raw_results), query[:50])
+            if not raw_results:
+                log.debug("Full Tavily Response: %r", data)
     except Exception:
         log.exception("Tavily search failed")
         return []
@@ -133,60 +147,39 @@ def search_legal_news(
         if (img if isinstance(img, str) else img.get("url", ""))
     ]
 
-    for idx, item in enumerate(data.get("results") or []):
-        url = item.get("url") or ""
-        title = item.get("title") or ""
+    for idx, item in enumerate(raw_results):
+        url = (item.get("url") or "").strip()
+        title = (item.get("title") or "").strip()
         content = item.get("content") or ""
-        raw_content = item.get("raw_content") or ""
-        if not url:
+        
+        if not url or not title:
             continue
 
-        aid = hashlib.sha256(f"tavily|{url}".encode("utf-8")).hexdigest()[:32]
+        # Pattern-based filtering (Phase 1 reinforcement)
+        if any(p in url.lower() for p in EXCLUDE_URL_PATTERNS):
+            continue
 
-        # Parse publication date
-        published_str = item.get("published_date")
-        published_at = None
-        if published_str:
-            try:
-                published_at = datetime.fromisoformat(published_str.replace('Z', '+00:00'))
-            except Exception:
-                published_at = _extract_date_from_content(content, title)
-        else:
-            published_at = _extract_date_from_content(content, title)
+        aid = hashlib.sha256(f"discovery|{url}".encode("utf-8")).hexdigest()[:32]
 
-        # Date filter: skip articles older than days_back
-        if published_at:
-            # Make naive datetimes UTC-aware for comparison
-            pa = published_at if published_at.tzinfo else published_at.replace(tzinfo=UTC)
-            if pa < start_date:
-                continue
-
-        # Image: prefer per-result image, fall back to top-level images list
-        image_url: str | None = item.get("image") or (top_images[idx] if idx < len(top_images) else None)
-
-        # Determine source from domain
+        # Basic metadata extraction
+        image_url = item.get("image") or (top_images[idx] if idx < len(top_images) else None)
         source = _domain_to_source(url)
 
-        # Prefer raw_content (full article text from Tavily) over snippet
-        full_text = raw_content or content
         out.append(
             NormalizedArticle(
                 id=aid,
                 source=source,
-                title=title.strip() or url,
-                url=url.strip(),
-                summary_hint=str(content)[:500],
-                published_at=published_at,
+                title=title or url,
+                url=url,
+                summary_hint=str(content)[:600],
                 fetched_at=now,
-                raw_excerpt=full_text[:2000] if full_text else None,
-                full_content=full_text[:15000] if full_text else None,
-                full_content_fetched=bool(raw_content),
-                kind="tavily",
+                full_content_fetched=False, # We let the surgical scraper handle this
+                kind="discovery",
                 image_url=image_url,
             )
         )
 
-    log.info("Tavily returned %d articles (days_back=%d, query=%r)", len(out), days_back, query)
+    log.info("Discovery: Tavily found %d candidates for query: %r", len(out), query[:30])
     return out
 
 
@@ -195,21 +188,9 @@ def _domain_to_source(url: str) -> str:
     domain_map = {
         "livelaw.in": "LiveLaw",
         "barandbench.com": "Bar and Bench",
-        "scconline.com": "SCC Online",
-        "indiankanoon.org": "Indian Kanoon",
-        "supremecourtofindia.nic.in": "Supreme Court",
         "economictimes.indiatimes.com": "ET Legal",
-        "lawstreet.in": "Law Street",
-        "verdictum.in": "Verdictum",
-        "latestlaws.com": "Latest Laws",
-        "legalserviceindia.com": "Legal Service India",
-        "thehindu.com": "The Hindu",
-        "ndtv.com": "NDTV",
-        "hindustantimes.com": "Hindustan Times",
-        "theprint.in": "The Print",
-        "scroll.in": "Scroll",
-        "reuters.com": "Reuters",
-        "timesofindia.indiatimes.com": "Times of India",
+        "indiankanoon.org": "Indian Kanoon",
+        "indialegallive.com": "IndiaLegalLive",
     }
     for domain, name in domain_map.items():
         if domain in url:
@@ -220,7 +201,7 @@ def _domain_to_source(url: str) -> str:
 def search_legal_news_multi(
     settings: Settings,
     queries: list[str] | None = None,
-    days_back: int = 2,
+    days_back: int = 3,
 ) -> list[NormalizedArticle]:
     """Single broad Tavily query for the Framer auto pipeline.
 
@@ -235,7 +216,7 @@ def search_legal_news_multi(
         settings,
         query=query,
         search_depth="advanced",
-        max_results=20,
+        max_results=10,
         include_images=True,
         days_back=days_back,
     )
@@ -245,26 +226,3 @@ def search_legal_news_multi(
     )
     return results
 
-
-# Keep backward-compatible alias used in existing ingest workflow
-def search_scc_legal_news(
-    settings: Settings,
-    query: str = "Supreme Court India judgment",
-    search_depth: str = "basic",
-    max_results: int = 15,
-    include_images: bool = True,
-    include_domains: list[str] | None = None,
-    content_type: str = "text",
-    start_date: datetime | None = None,
-    end_date: datetime | None = None,
-    days_back: int = 1,
-) -> list[NormalizedArticle]:
-    return search_legal_news(
-        settings=settings,
-        query=query,
-        search_depth=search_depth,
-        max_results=max_results,
-        include_images=include_images,
-        include_domains=include_domains,
-        days_back=days_back,
-    )

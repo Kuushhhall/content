@@ -9,17 +9,24 @@ log = logging.getLogger(__name__)
 MAX_CONTENT_LENGTH = 15000
 
 # Ordered list of CSS selectors for main article content
+# Target body content across major legal portals
 CONTENT_SELECTORS = [
-    'article',
-    '[class*="article-content"]',
-    '[class*="post-content"]',
-    '[class*="entry-content"]',
-    '[class*="story-content"]',
-    '[class*="news-content"]',
-    '[class*="article-body"]',
-    '[class*="post-body"]',
-    'main',
-    '.content',
+    # General article/body tags
+    'article', 'main', '.article-content', '.post-content', '.entry-content',
+    '.story-content', '.news-content', '.article-body', '.post-body',
+    '#article-body', '#maincontent', '#content',
+    
+    # LiveLaw specialized
+    '.article-content', '#maincontent',
+    
+    # Bar and Bench
+    '.story-content', '.content-wrapper',
+    
+    # ET Legal
+    '.artText', '.article-text',
+    
+    # IndiaLegalLive
+    '.td-post-content',
 ]
 
 UNWANTED_TAGS = [
@@ -30,9 +37,14 @@ UNWANTED_TAGS = [
 
 
 def clean_content(content: str) -> str:
-    """Normalize extracted text — collapse whitespace, fix punctuation."""
+    """Normalize extracted text — collapse whitespace, remove repetitive 'Read More' patterns."""
     if not content:
         return ""
+    # Remove repetitive patterns common in legal news sites
+    content = re.sub(r'Also\s+read:.*?(?=\s|$)', '', content, flags=re.IGNORECASE)
+    content = re.sub(r'Read\s+more:.*?(?=\s|$)', '', content, flags=re.IGNORECASE)
+    content = re.sub(r'Check\s+out:.*?(?=\s|$)', '', content, flags=re.IGNORECASE)
+    
     content = re.sub(r'\s+', ' ', content)
     content = re.sub(r'\.{2,}', '.', content)
     return content.strip()

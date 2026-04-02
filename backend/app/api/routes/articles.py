@@ -11,7 +11,7 @@ from app.sources import tavily_client
 class SearchNewsIn(BaseModel):
     query: str
     max_results: int = 10
-    search_depth: str = "basic"
+    search_depth: str = "advanced"
     sources: list[str] | None = None
     days_back: int = 1
     include_images: bool = True
@@ -48,9 +48,15 @@ async def list_articles(
     if selected_only:
         articles = [a for a in articles if a.selected]
 
+    def _safe_date(a: NormalizedArticle):
+        dt = a.published_at or datetime.min
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
+
     reverse = order.lower() == "desc"
     if sort_by == "published_at":
-        articles.sort(key=lambda x: x.published_at or datetime.min, reverse=reverse)
+        articles.sort(key=_safe_date, reverse=reverse)
     elif sort_by == "title":
         articles.sort(key=lambda x: x.title.lower(), reverse=reverse)
     elif sort_by == "virality":
@@ -77,11 +83,13 @@ async def trigger_ingest(
     settings: SettingsDep,
     body: IngestOptionsIn = IngestOptionsIn(),
 ) -> dict:
-    """Ingest latest legal news from Tavily with full content fetch."""
+    """Ingest latest legal news from Tavily with full content fetch.
+    
+    Always uses INGESTION_QUERY for consistent high-impact legal news discovery.
+    """
     n = await ingest_workflow.run_ingestion(
         store,
         settings,
-        query=body.query,
         days_back=body.days_back,
         max_results=body.max_results,
         sources=body.sources,

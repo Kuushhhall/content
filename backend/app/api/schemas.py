@@ -167,8 +167,7 @@ class AutoSelectOut(BaseModel):
 
 
 class IngestOptionsIn(BaseModel):
-    days_back: int = 1
-    query: str = "Supreme Court India judgment"
+    days_back: int = 3
     max_results: int = 15
     sources: list[str] | None = None
     include_images: bool = True

@@ -167,220 +167,6 @@ def parse_reddit_title_body(generated: str) -> tuple[str, str]:
 
 
 # ============================================================================
-# FRAMER PROMPTS
-# ============================================================================
-
-# ============================================================================
-# FRAMER PROMPTS (PRODUCTION READY)
-# ============================================================================
-
-def build_framer_prompt(article: NormalizedArticle, summary: str, collection: str = "articles") -> str:
-    """
-    Build a Framer-native CMS JSON payload directly from LLM.
-    
-    Output is designed to map 1:1 with Framer CMS fieldData.
-    No backend transformation required.
-    
-    Args:
-        collection: "articles" or "news"
-    """
-
-    if collection == "articles":
-        return f"""
-{LAWXY_REPORTER_PERSONA}
-
-You are "Lawxy Times Reporter" — writing premium long-form legal analysis for a Framer CMS blog.
-
-Your job is to generate a FULLY READY Framer CMS JSON payload.
-
----
-
-##  OUTPUT FORMAT (STRICT JSON ONLY)
-
-{{
-  "collection": "articles",
-  "fieldData": {{
-    "Title": "...",
-    "Slug": "...",
-    "Excerpt": "...",
-    "Content": "<valid HTML>",
-    "Date": "ISO-8601 date",
-    "Author": "krunal-shah",
-    "Featured": false
-  }}
-}}
-
----
-
-##  CONTENT RULES
-
-### TITLE
-- Analytical, sharp
-- NOT clickbait
-- 8–14 words
-
-### SLUG
-- lowercase
-- hyphen-separated
-- no special characters
-
-### EXCERPT
-- 2–3 sentences
-- must feel premium + insightful
-
----
-
-##  CONTENT (VERY IMPORTANT)
-
-You MUST output **HTML (NOT markdown)**
-
-Structure:
-
-<p><strong>News:</strong> crisp factual statement</p>
-
-<h2>What Happened</h2>
-<p>...</p>
-
-<h2>What This Actually Means</h2>
-<p>...</p>
-
-<h2>Impact</h2>
-
-<h3>For Lawyers</h3>
-<p>...</p>
-
-<h3>For Businesses</h3>
-<p>...</p>
-
-<h3>For Citizens</h3>
-<p>...</p>
-
-<h2>What Happens Next</h2>
-<p>...</p>
-
-<p><em>By Lawxy Times Reporter</em></p>
-
----
-
-##  HARD RULES
-
-- NO markdown
-- NO ``` blocks
-- ONLY HTML tags
-- NO repetition
-- No fluff
-- Each paragraph must add insight
-- 800–1200 words
-- Include source link naturally inside content:
-  {article.url}
-
----
-
-## ARTICLE CONTEXT
-
-Title: {article.title}  
-Source: {article.source}  
-URL: {article.url}  
-
-Content:
-{summary[:3000]}
-
----
-
-Return ONLY valid JSON.
-"""
-
-    elif collection == "news":
-        return f"""
-{LAWXY_REPORTER_PERSONA}
-
-You are "Lawxy Times Reporter" — creating sharp, fast, high-signal legal news updates.
-
-Your job is to generate a FULLY READY Framer CMS JSON payload.
-
----
-
-##  OUTPUT FORMAT (STRICT JSON ONLY)
-
-{{
-  "collection": "news",
-  "fieldData": {{
-    "Heading": "...",
-    "Slug": "...",
-    "SubHeading": "...",
-    "Content": "<valid HTML>",
-    "Date": "ISO-8601 date",
-    "Author": "krunal-shah",
-    "Featured": false,
-    "News Category": "LEGAL UPDATE"
-  }}
-}}
-
----
-
-##  CONTENT RULES
-
-### HEADING
-- punchy, strong
-- 6–10 words max
-
-### SLUG
-- lowercase
-- hyphen-separated
-
-### SUBHEADING
-- 1–2 lines
-- summarize impact
-
----
-
-##  CONTENT (HTML ONLY)
-
-<p><strong>Breaking:</strong> immediate legal development</p>
-
-<h2>What Happened</h2>
-<p>...</p>
-
-<h2>Why It Matters</h2>
-<p>...</p>
-
-<h2>Key Implications</h2>
-<ul>
-<li>...</li>
-<li>...</li>
-<li>...</li>
-</ul>
-
-<p><em>Source: <a href="{article.url}">{article.source}</a></em></p>
-
----
-
-##  HARD RULES
-
-- MAX 400–600 words
-- Fast, sharp, no deep essay
-- HTML ONLY (no markdown)
-- No fluff
-- High clarity
-
----
-
-## ARTICLE CONTEXT
-
-Title: {article.title}  
-Source: {article.source}  
-URL: {article.url}  
-
-Content:
-{summary[:2000]}
-
----
-
-Return ONLY valid JSON.
-"""
-
-
-# ============================================================================
 # FRAMER MASTER PROMPT (SINGLE-CALL)
 # ============================================================================
 
@@ -518,6 +304,18 @@ STRUCTURE (use HTML tags):
     {{"title": "EU AI Act Update", "url": "https://example.com"}}
   ]
 }}
+
+---
+
+### HARD RULES
+- Return ONLY valid JSON (no markdown blocks, no explanation)
+- Content must be HTML tags (NO markdown, NO ``` blocks)
+- Max 3 categories (can be 1 or 2)
+- Type must be exactly: news/guide/opinion/explainer
+- Include source link naturally in content: {article.url}
+- 800-1200 words total
+- No fluff, no repetition
+- Each section adds new insight
 
 ---
 
@@ -740,40 +538,6 @@ def split_x_thread(text: str) -> list[str]:
 
 
 # ============================================================================
-# ENGAGEMENT PROMPTS
-# ============================================================================
-
-def build_engagement_prompt(article_topic: str, article_summary: str, comment_content: str, 
-                           comment_author: str, platform: str) -> str:
-    """Build the prompt for generating an elite Lawxy Reporter reply to a comment.
-    
-    Used by: engagement/comment reply generation
-    """
-    return f"""
-{LAWXY_REPORTER_PERSONA}
-
-Task:
-Generate a sharp, high-IQ reply to this comment on our legal reporting.
-
-Article Topic: {article_topic}
-Article Context: {article_summary}
-
-Platform: {platform}
-Comment by {comment_author}:
-"{comment_content}"
-
-Guidelines:
-1. Maintain the "Lawxy Times Reporter" persona: elite, slightly cynical, surgical.
-2. Keep it concise (1-3 sentences).
-3. Add value: clarify a legal point or point to a broader pattern.
-4. No filler, no generic "Thank you for your comment."
-5. Never mention you are an AI.
-
-Return only the reply text.
-"""
-
-
-# ============================================================================
 # INTELLIGENCE & METADATA PROMPTS
 # ============================================================================
 
@@ -826,4 +590,43 @@ Provide the following structured information in JSON format:
 11. Suggested Hashtags (3-5)
 
 Output STRICTLY valid JSON object. No conversational filler.
+"""
+
+# ============================================================================
+# INGESTION & VALIDATION PROMPTS
+# ============================================================================
+
+def build_article_validation_prompt(title: str, content: str) -> str:
+    """Build the prompt for verifying if the ingested text is a valid legal article.
+    
+    Used by: IngestWorkflow to prevent "garbage in" (index pages, thin snippets).
+    """
+    return f"""
+{LAWXY_REPORTER_PERSONA}
+
+You are the "Ingestion Gatekeeper" for Lawxy Times. Your job is to analyze this raw text and decide if it is a substantive legal news article or garbage (landing page, directory, index, or ad).
+
+### INPUT:
+Title: {title}
+Content: {content[:4000]}
+
+### EVALUATION CRITERIA:
+1. **Substance**: Does it contain a real legal story, a court ruling, or a legislative update?
+2. **Completeness**: Is this the full story, or just a 2-sentence "Read More" snippet?
+3. **Quality**: Is it free of mostly directory links, ads, or navigation menus?
+
+### OUTPUT FORMAT (STRICT JSON ONLY):
+{{
+  "is_valid_article": true/false,
+  "reason": "Short reason why",
+  "categories": ["Category 1", "Category 2"],
+  "confidence_score": 0.0 to 1.0,
+  "estimated_reading_time": 1-10 (minutes)
+}}
+
+Available Categories: 
+"LEGAL TECH & AI", "REGULATORY", "LEGAL GUIDES", "JUDGEMENTS & CASES", 
+"DISPUTES & ENFORCEMENT", "COMPLIANCE & RISK", "COMMERCIAL & TRANSACTIONS", "LEGAL UPDATES".
+
+Return ONLY valid JSON.
 """
