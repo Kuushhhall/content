@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   IndianRupee,
+  Bot,
 } from 'lucide-react'
 import { NavLink, useLocation, Link } from 'react-router-dom'
 import { useUIStore } from '../store/uiStore'
@@ -17,6 +18,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/news', label: 'News Feed', icon: Newspaper },
   { path: '/drafts', label: 'Drafts', icon: FileText },
+  { path: '/automation', label: 'Automation', icon: Bot },
   { path: '/scheduler', label: 'Scheduler', icon: Calendar },
   { path: '/costs', label: 'Costs', icon: IndianRupee },
 ]

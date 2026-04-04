@@ -17,3 +17,8 @@ def list_costs(store: StoreDep, limit: int = Query(200, ge=1, le=1000)) -> dict:
 @router.get("/summary", response_model=dict)
 def cost_summary(store: StoreDep) -> dict:
     return store.get_cost_summary()
+
+
+@router.get("/by-cycle/{cycle_id}", response_model=dict)
+def cycle_cost(cycle_id: str, store: StoreDep) -> dict:
+    return store.get_cycle_cost(cycle_id)

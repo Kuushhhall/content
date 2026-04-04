@@ -101,14 +101,22 @@ export function Dashboard() {
 
           {isCompleted && (
             <div className={`mb-6 rounded-2xl border p-4 ${isDarkMode ? 'border-success/30 bg-success/5' : 'border-success/30 bg-success/5'}`}>
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-success" />
-                <div>
-                  <p className="text-sm font-bold text-main">Last cycle completed</p>
-                  <p className="text-xs text-muted mt-0.5">
-                    {cycleProgress?.total_articles || 0} articles · {cycleProgress?.drafts_created || 0} drafts
-                  </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-success" />
+                  <div>
+                    <p className="text-sm font-bold text-main">Last cycle completed</p>
+                    <p className="text-xs text-muted mt-0.5">
+                      {cycleProgress?.total_articles || 0} articles · {cycleProgress?.drafts_created || 0} drafts
+                    </p>
+                  </div>
                 </div>
+                {cycleProgress?.cycle_cost_inr != null && (
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-volt">₹{cycleProgress.cycle_cost_inr.toFixed(4)}</p>
+                    <p className="text-xs text-muted">${cycleProgress.cycle_cost_usd.toFixed(6)} USD</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -194,9 +202,9 @@ export function Dashboard() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { step: '1', title: 'Fetch 30 Articles', desc: '3 Tavily searches across different legal categories fetch 10 articles each' },
-            { step: '2', title: 'LLM Ranks Top 10', desc: 'AI analyzes all 30 titles and picks the 10 most newsworthy stories' },
-            { step: '3', title: 'Generate 22 Drafts', desc: '2 LinkedIn posts, 10 Framer articles, 10 X threads — each from a separate LLM call' },
+            { step: '1', title: 'Search & Rank', desc: 'One OpenAI web search call fetches and ranks the top 10 Indian legal news articles by virality' },
+            { step: '2', title: 'Generate 22 Drafts', desc: '2 LinkedIn posts, 10 Framer articles, 10 X threads — each from a separate LLM call' },
+            { step: '3', title: 'Track Every Rupee', desc: 'Every API call is logged to costs.json with token counts and INR cost using gpt-5.4-nano pricing' },
           ].map((item) => (
             <div key={item.step} className={`rounded-2xl border p-6 ${isDarkMode ? 'border-graphite/40 bg-void/20' : 'border-graphite/20 bg-stellar/30'}`}>
               <div className="flex items-center gap-3 mb-3">

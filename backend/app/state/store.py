@@ -1,3 +1,4 @@
+import json
 import uuid
 from pathlib import Path
 
@@ -7,13 +8,38 @@ from app.models.draft import ContentDraft
 from app.models.publish import PublishResult
 from app.models.schedule import ScheduledPost
 from app.state.models import CostRecord, RuntimeState
-from app.state.persistence import load_state, save_state
+from app.state.persistence import atomic_write_json, load_state, save_state
 
 
 class StateStore:
     def __init__(self, state_path: Path) -> None:
         self._path = state_path
+        self._costs_path = state_path.parent / "costs.json"
         self._state = load_state(state_path)
+        self._load_costs()
+        # Bootstrap costs.json from state.json if it doesn't exist yet
+        if not self._costs_path.exists() and self._state.cost_records:
+            self._persist_costs()
+
+    def _load_costs(self) -> None:
+        """Load cost records from dedicated costs.json (persists across state resets)."""
+        if not self._costs_path.exists():
+            return
+        try:
+            raw = json.loads(self._costs_path.read_text(encoding="utf-8"))
+            loaded = [CostRecord.model_validate(r) for r in raw.get("records", [])]
+            # Merge: add any from file not already in memory (by id)
+            existing_ids = {r.id for r in self._state.cost_records}
+            for r in loaded:
+                if r.id not in existing_ids:
+                    self._state.cost_records.append(r)
+        except Exception:
+            pass
+
+    def _persist_costs(self) -> None:
+        """Persist cost records to dedicated costs.json."""
+        data = {"records": [r.model_dump(mode="json") for r in self._state.cost_records]}
+        atomic_write_json(self._costs_path, data)
 
     @property
     def runtime(self) -> RuntimeState:
@@ -143,11 +169,12 @@ class StateStore:
     _MODEL_COSTS_USD_PER_1M: dict = {
         "gpt-4o": {"input": 2.50, "output": 10.00},
         "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-        "gpt-5-nano": {"input": 0.05, "output": 0.40},
+        "gpt-5-nano": {"input": 0.20, "output": 1.25},
+        "gpt-5.4-nano": {"input": 0.20, "output": 1.25},
         "o3-mini": {"input": 1.10, "output": 4.40},
         "llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79},
         "llama-3.1-8b-instant": {"input": 0.05, "output": 0.08},
-        "default": {"input": 0.50, "output": 1.50},
+        "default": {"input": 0.20, "output": 1.25},
     }
     _USD_TO_INR: float = 84.0
 
@@ -184,11 +211,27 @@ class StateStore:
             cost_inr=round(cost_usd * self._USD_TO_INR, 6),
         )
         self._state.cost_records.append(record)
+        self._persist_costs()
         self._persist()
         return record
 
     def list_cost_records(self, limit: int = 200) -> list[CostRecord]:
         return self._state.cost_records[-limit:]
+
+    def get_cycle_cost(self, cycle_id: str) -> dict:
+        """Return total cost for a specific pipeline cycle_id."""
+        records = [r for r in self._state.cost_records if r.pipeline_run_id == cycle_id]
+        total_usd = sum(r.cost_usd for r in records)
+        total_inr = sum(r.cost_inr for r in records)
+        total_tokens = sum(r.total_tokens for r in records)
+        return {
+            "cycle_id": cycle_id,
+            "total_usd": round(total_usd, 8),
+            "total_inr": round(total_inr, 6),
+            "total_tokens": total_tokens,
+            "calls": len(records),
+            "breakdown": [r.model_dump(mode="json") for r in records],
+        }
 
     def get_cost_summary(self) -> dict:
         records = self._state.cost_records

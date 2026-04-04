@@ -10,6 +10,7 @@ import { NewsFeed } from './pages/NewsFeed'
 import { DraftsPage } from './pages/DraftsPage'
 import { PostScheduler } from './pages/PostScheduler'
 import CostTracker from './pages/CostTracker'
+import { AutomationDashboard } from './pages/AutomationDashboard'
 import { useUIStore } from './store/uiStore'
 
 const pageVariants = {
@@ -35,21 +36,21 @@ function App() {
   }, [isDarkMode])
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden ${isDarkMode ? 'dark' : 'light'}`}>
+    <div className={`flex h-screen w-full overflow-hidden ${isDarkMode ? 'bg-void text-silver' : 'bg-cream text-ink'}`}>
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 3500,
           style: {
-            background: isDarkMode ? 'rgba(var(--bg-secondary-rgb), 0.95)' : 'rgba(var(--bg-secondary-rgb), 0.95)',
-            color: isDarkMode ? 'rgba(var(--text-primary-rgb), 1)' : 'rgba(var(--text-primary-rgb), 1)',
-            border: isDarkMode ? '1px solid rgba(var(--border-primary-rgb), 0.3)' : '1px solid rgba(var(--border-primary-rgb), 0.3)',
-            borderRadius: '0.5rem',
+            background: isDarkMode ? '#141418' : '#ffffff',
+            color: isDarkMode ? '#F5F5F7' : '#17171E',
+            border: isDarkMode ? '1px solid rgba(42,42,48,0.6)' : '1px solid rgba(42,42,48,0.2)',
+            borderRadius: '0.75rem',
             fontSize: '13px',
             fontWeight: '500',
             padding: '12px 16px',
             backdropFilter: 'blur(10px)',
-            boxShadow: 'var(--shadow-md)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           },
         }}
       />
@@ -75,6 +76,7 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/news" element={<NewsFeed />} />
                 <Route path="/drafts" element={<DraftsPage />} />
+                <Route path="/automation" element={<AutomationDashboard />} />
                 <Route path="/scheduler" element={<PostScheduler />} />
                 <Route path="/costs" element={<CostTracker />} />
               </Routes>

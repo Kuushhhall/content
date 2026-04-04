@@ -6,10 +6,10 @@ import { ThemeToggle } from './ThemeToggle'
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/news': 'News Feed',
-  '/studio': 'Content Studio',
-  '/scheduler': 'Post Scheduler',
-  '/engagement': 'Engagement Hub',
-  '/analytics': 'Analytics',
+  '/drafts': 'Drafts',
+  '/automation': 'Automation',
+  '/scheduler': 'Scheduler',
+  '/costs': 'Cost Tracker',
 }
 
 export function TopBar() {

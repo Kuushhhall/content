@@ -26,7 +26,7 @@ export default {
         'accent-warning': 'rgba(var(--accent-warning-rgb), <alpha-value>)',
         'accent-danger': 'rgba(var(--accent-danger-rgb), <alpha-value>)',
 
-        // Landing page custom palette
+        // App custom palette
         'void': '#0A0A0C',
         'silver': '#F5F5F7',
         'volt': '#00FF9D',
@@ -36,9 +36,14 @@ export default {
         'graphite': '#2A2A30',
         'dim': '#A0A0AA',
         'stellar': '#C8C8D0',
+        'ink': '#17171E',
+        'main': '#F5F5F7',
+        'muted': '#A0A0AA',
+        'danger': '#EF4444',
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+        serif: ['Playfair Display', 'ui-serif', 'Georgia'],
       },
       borderRadius: {
         'lg': '0.5rem',

@@ -45,6 +45,7 @@ export function PlatformIcon({ platform, size = 16, showLabel = false, className
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function getPlatformLabel(platform: string): string {
   return platforms[platform]?.label ?? platform
 }

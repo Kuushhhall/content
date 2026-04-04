@@ -16,6 +16,8 @@ class CycleProgress(BaseModel):
     top_10_ids: list[str] = Field(default_factory=list)
     drafts_created: int = 0
     errors: list[str] = Field(default_factory=list)
+    cycle_cost_usd: float = 0.0
+    cycle_cost_inr: float = 0.0
 
     def to_dict(self) -> dict:
         return self.model_dump(mode="json")

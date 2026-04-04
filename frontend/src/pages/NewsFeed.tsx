@@ -4,13 +4,14 @@ import {
   ExternalLink, Trash2,
   Loader2, Flame, Calendar,
   LayoutGrid, List, Search as SearchIcon,
-  FileText, Sparkles,
+  FileText, Sparkles, Square, CheckSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 import { api } from '../lib/api';
+import { useUIStore } from '../store/uiStore';
 import type { Article } from '../types';
 
 function timeAgo(dateStr: string | null): string {
@@ -33,11 +34,13 @@ function timeAgo(dateStr: string | null): string {
 export function NewsFeed() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const isDarkMode = useUIStore((s) => s.isDarkMode);
 
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'published_at' | 'virality'>('published_at');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [modalArticle, setModalArticle] = useState<Article | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['articles', sortBy],
@@ -73,54 +76,114 @@ export function NewsFeed() {
     onError: (e: Error) => toast.error(e.message || 'Delete failed'),
   });
 
+  const deleteSelectedMut = useMutation({
+    mutationFn: async () => {
+      const ids = Array.from(selectedIds);
+      await Promise.all(ids.map(id => api.deleteArticle(id)));
+      return ids.length;
+    },
+    onSuccess: (count) => {
+      toast.success(`${count} article${count > 1 ? 's' : ''} deleted`);
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ['articles'] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === articles.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(articles.map(a => a.id)));
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-gray-950 text-gray-100 min-h-screen">
+    <div className={`flex flex-col h-full min-h-screen ${isDarkMode ? 'bg-void text-silver' : 'bg-cream text-ink'}`}>
       {/* Header */}
-      <div className="border-b border-gray-800 px-6 py-4">
+      <div className={`border-b px-6 py-4 ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`}>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-white">News Feed</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <h1 className={`text-xl font-bold ${isDarkMode ? 'text-silver' : 'text-ink'}`}>News Feed</h1>
+            <p className="text-sm text-muted mt-0.5">
               {articles.length} article{articles.length !== 1 ? 's' : ''} — run a content cycle from Dashboard to generate drafts
             </p>
           </div>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-volt hover:bg-volt/90 text-void rounded-lg text-sm font-bold transition-colors"
-          >
-            <Sparkles className="w-4 h-4" /> Run Content Cycle
-          </button>
+          <div className="flex items-center gap-3">
+            {selectedIds.size > 0 && (
+              <button
+                onClick={() => deleteSelectedMut.mutate()}
+                disabled={deleteSelectedMut.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-danger/10 text-danger border border-danger/30 rounded-xl text-sm font-bold hover:bg-danger hover:text-white transition-all"
+              >
+                {deleteSelectedMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Delete {selectedIds.size}
+              </button>
+            )}
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-volt hover:bg-volt/90 text-void rounded-xl text-sm font-bold transition-colors"
+            >
+              <Sparkles className="w-4 h-4" /> Run Content Cycle
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-6 py-3 border-b border-gray-800/50">
+      <div className={`flex items-center gap-3 px-6 py-3 border-b ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`}>
         <div className="flex-1 relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Filter articles..."
-            className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-600"
+            className={`w-full border rounded-xl pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:border-volt/50 transition-colors ${
+              isDarkMode
+                ? 'bg-graphite/20 border-graphite/40 text-silver placeholder-dim'
+                : 'bg-white border-graphite/20 text-ink placeholder-dim'
+            }`}
           />
         </div>
         <select
           value={sortBy}
           onChange={e => setSortBy(e.target.value as 'published_at' | 'virality')}
-          className="bg-gray-900 border border-gray-800 text-sm text-gray-300 rounded-lg px-2 py-1.5 focus:outline-none"
+          className={`border text-sm rounded-xl px-2 py-1.5 focus:outline-none ${
+            isDarkMode ? 'bg-graphite/20 border-graphite/40 text-dim' : 'bg-white border-graphite/20 text-muted'
+          }`}
         >
           <option value="published_at">Latest</option>
           <option value="virality">Virality</option>
         </select>
-        <div className="flex items-center gap-1 bg-gray-900 border border-gray-800 rounded-lg p-1">
-          <button onClick={() => setViewMode('list')} className={`p-1 rounded transition-colors ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>
+        <div className={`flex items-center gap-1 border rounded-xl p-1 ${isDarkMode ? 'bg-graphite/20 border-graphite/40' : 'bg-white border-graphite/20'}`}>
+          <button onClick={() => setViewMode('list')} className={`p-1 rounded-lg transition-colors ${viewMode === 'list' ? isDarkMode ? 'bg-graphite/60 text-silver' : 'bg-stellar/50 text-ink' : 'text-dim'}`}>
             <List className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => setViewMode('grid')} className={`p-1 rounded transition-colors ${viewMode === 'grid' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}>
+          <button onClick={() => setViewMode('grid')} className={`p-1 rounded-lg transition-colors ${viewMode === 'grid' ? isDarkMode ? 'bg-graphite/60 text-silver' : 'bg-stellar/50 text-ink' : 'text-dim'}`}>
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
         </div>
+        {articles.length > 0 && (
+          <button
+            onClick={selectAll}
+            className={`flex items-center gap-2 px-3 py-1.5 border rounded-xl text-sm font-bold transition-colors ${
+              isDarkMode ? 'bg-graphite/20 border-graphite/40 text-dim hover:text-silver' : 'bg-white border-graphite/20 text-muted hover:text-ink'
+            }`}
+          >
+            {selectedIds.size === articles.length ? <CheckSquare className="w-4 h-4 text-volt" /> : <Square className="w-4 h-4" />}
+            {selectedIds.size === articles.length ? 'Deselect All' : 'Select All'}
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -132,23 +195,23 @@ export function NewsFeed() {
         )}
 
         {isError && (
-          <div className="text-center py-16 text-red-400 text-sm">
+          <div className="text-center py-16 text-danger text-sm">
             Failed to load articles. Make sure the backend is running.
           </div>
         )}
 
         {!isLoading && !isError && articles.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-            <FileText className="w-12 h-12 text-gray-700" />
+            <FileText className="w-12 h-12 text-dim" />
             <div>
-              <p className="text-gray-400 font-medium">No articles yet</p>
-              <p className="text-gray-600 text-sm mt-1">
+              <p className="text-muted font-medium">No articles yet</p>
+              <p className="text-dim text-sm mt-1">
                 Go to Dashboard and click <span className="text-volt font-bold">Run Content Cycle</span> to fetch and rank articles.
               </p>
             </div>
             <button
               onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 bg-volt hover:bg-volt/90 text-void px-4 py-2 rounded-lg text-sm font-bold"
+              className="flex items-center gap-2 bg-volt hover:bg-volt/90 text-void px-4 py-2 rounded-xl text-sm font-bold"
             >
               <Sparkles className="w-4 h-4" /> Go to Dashboard
             </button>
@@ -162,6 +225,8 @@ export function NewsFeed() {
                 key={article.id}
                 article={article}
                 layout={viewMode}
+                selected={selectedIds.has(article.id)}
+                onSelect={() => toggleSelect(article.id)}
                 onClick={() => setModalArticle(article)}
                 onDelete={() => deleteMut.mutate(article.id)}
                 isDeleting={deleteMut.isPending && deleteMut.variables === article.id}
@@ -187,14 +252,14 @@ export function NewsFeed() {
 }
 
 const TAG_STYLES: Record<string, string> = {
-  hot: 'bg-red-500/20 text-red-400 border-red-500/30',
-  breaking: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  landmark: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-  recent: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  hot: 'bg-danger/20 text-danger border-danger/30',
+  breaking: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  landmark: 'bg-amethyst/20 text-amethyst border-amethyst/30',
+  recent: 'bg-success/20 text-success border-success/30',
 }
 
 const ArticleTag: React.FC<{ tag: string }> = ({ tag }) => {
-  const style = TAG_STYLES[tag] ?? 'bg-gray-700/50 text-gray-400 border-gray-600/30'
+  const style = TAG_STYLES[tag] ?? 'bg-graphite/20 text-dim border-graphite/30'
   return (
     <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${style}`}>
       {tag}
@@ -205,21 +270,35 @@ const ArticleTag: React.FC<{ tag: string }> = ({ tag }) => {
 interface FeedCardProps {
   article: Article;
   layout: 'grid' | 'list';
+  selected: boolean;
+  onSelect: () => void;
   onClick: () => void;
   onDelete: () => void;
   isDeleting: boolean;
 }
 
-const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, onDelete, isDeleting }) => {
+const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, selected, onSelect, onClick, onDelete, isDeleting }) => {
+  const isDarkMode = useUIStore((s) => s.isDarkMode);
   const virality = article.content_intelligence?.virality_score ?? 0;
   const viralityPct = Math.round(virality * 100);
 
+  const cardBase = `transition-all group cursor-pointer rounded-xl border ${
+    selected
+      ? 'border-volt/50 bg-volt/5'
+      : isDarkMode
+        ? 'border-graphite/40 bg-graphite/10 hover:border-graphite/60'
+        : 'border-graphite/20 bg-white hover:border-graphite/40'
+  }`
+
   if (layout === 'list') {
     return (
-      <div
-        onClick={onClick}
-        className="flex items-start gap-3 p-3 rounded-xl border border-gray-800 bg-gray-900/50 hover:border-gray-700 cursor-pointer transition-all group"
-      >
+      <div onClick={onClick} className={`flex items-start gap-3 p-3 ${cardBase}`}>
+        <button
+          onClick={e => { e.stopPropagation(); onSelect(); }}
+          className="p-1 rounded hover:bg-white/10 transition-colors shrink-0 mt-1"
+        >
+          {selected ? <CheckSquare size={18} className="text-volt" /> : <Square size={18} className="text-dim" />}
+        </button>
         {article.image_url && (
           <img
             src={article.image_url}
@@ -229,7 +308,7 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
           />
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white line-clamp-2 leading-snug">{article.title}</p>
+          <p className={`text-sm font-medium line-clamp-2 leading-snug ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{article.title}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <a
               href={article.url}
@@ -240,7 +319,7 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
             >
               {article.source} <ExternalLink className="w-2.5 h-2.5" />
             </a>
-            <span className="text-xs text-gray-500">{timeAgo(article.published_at)}</span>
+            <span className="text-xs text-dim">{timeAgo(article.published_at)}</span>
             {viralityPct > 0 && (
               <span className="flex items-center gap-0.5 text-xs text-amber-400">
                 <Flame className="w-3 h-3" />{viralityPct}%
@@ -255,7 +334,7 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
           <button
             onClick={onDelete}
             disabled={isDeleting}
-            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            className="p-1.5 text-dim hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
             title="Delete"
           >
             <Trash2 className="w-4 h-4" />
@@ -266,10 +345,7 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
   }
 
   return (
-    <div
-      onClick={onClick}
-      className="flex flex-col rounded-xl border border-gray-800 bg-gray-900/50 hover:border-gray-700 cursor-pointer transition-all overflow-hidden group"
-    >
+    <div onClick={onClick} className={`flex flex-col overflow-hidden ${cardBase}`}>
       {article.image_url && (
         <img
           src={article.image_url}
@@ -279,7 +355,15 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
         />
       )}
       <div className="p-3 flex-1 flex flex-col">
-        <p className="text-sm font-medium text-white line-clamp-3 leading-snug">{article.title}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className={`text-sm font-medium line-clamp-3 leading-snug flex-1 ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{article.title}</p>
+          <button
+            onClick={e => { e.stopPropagation(); onSelect(); }}
+            className="p-1 rounded hover:bg-white/10 transition-colors shrink-0"
+          >
+            {selected ? <CheckSquare size={16} className="text-volt" /> : <Square size={16} className="text-dim" />}
+          </button>
+        </div>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           <a
             href={article.url}
@@ -290,7 +374,7 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
           >
             {article.source} <ExternalLink className="w-2.5 h-2.5" />
           </a>
-          <span className="text-xs text-gray-500">{timeAgo(article.published_at)}</span>
+          <span className="text-xs text-dim">{timeAgo(article.published_at)}</span>
           {viralityPct > 0 && (
             <span className="flex items-center gap-0.5 text-xs text-amber-400 ml-auto">
               <Flame className="w-3 h-3" />{viralityPct}%
@@ -300,11 +384,11 @@ const FeedArticleCard: React.FC<FeedCardProps> = ({ article, layout, onClick, on
             <ArticleTag key={tag} tag={tag} />
           ))}
         </div>
-        <div className="flex gap-2 mt-3 pt-2 border-t border-gray-800 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+        <div className={`flex gap-2 mt-3 pt-2 border-t opacity-0 group-hover:opacity-100 transition-opacity ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`} onClick={e => e.stopPropagation()}>
           <button
             onClick={onDelete}
             disabled={isDeleting}
-            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            className="p-1.5 text-dim hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -322,6 +406,7 @@ interface ModalProps {
 }
 
 const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onDelete, isDeleting }) => {
+  const isDarkMode = useUIStore((s) => s.isDarkMode);
   const virality = article.content_intelligence?.virality_score ?? 0;
   const insights = article.content_intelligence?.key_insights ?? [];
 
@@ -338,11 +423,13 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onDelete, isDele
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, y: 10 }}
         onClick={e => e.stopPropagation()}
-        className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+        className={`border rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden ${
+          isDarkMode ? 'bg-void border-graphite/40' : 'bg-cream border-graphite/20'
+        }`}
       >
-        <div className="flex items-start justify-between p-5 border-b border-gray-800">
+        <div className={`flex items-start justify-between p-5 border-b ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`}>
           <div className="flex-1 min-w-0 pr-4">
-            <h2 className="text-base font-semibold text-white leading-snug">{article.title}</h2>
+            <h2 className={`text-base font-semibold leading-snug ${isDarkMode ? 'text-silver' : 'text-ink'}`}>{article.title}</h2>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <a
                 href={article.url}
@@ -352,7 +439,7 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onDelete, isDele
               >
                 {article.source} <ExternalLink className="w-3 h-3" />
               </a>
-              <span className="text-xs text-gray-500 flex items-center gap-1">
+              <span className="text-xs text-dim flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
                 {article.published_at ? new Date(article.published_at).toLocaleDateString() : 'Unknown'}
               </span>
@@ -364,7 +451,7 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onDelete, isDele
               )}
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg shrink-0">
+          <button onClick={onClose} className="p-1.5 text-dim hover:text-silver hover:bg-graphite/20 rounded-lg shrink-0">
             <span className="text-lg">×</span>
           </button>
         </div>
@@ -381,10 +468,10 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onDelete, isDele
 
           {insights.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Key Insights</p>
+              <p className="text-xs font-bold text-dim uppercase tracking-widest mb-2">Key Insights</p>
               <ul className="space-y-1">
                 {insights.map((insight, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-gray-300">
+                  <li key={i} className={`flex gap-2 text-sm ${isDarkMode ? 'text-silver' : 'text-ink'}`}>
                     <span className="text-volt shrink-0">•</span>
                     {insight}
                   </li>
@@ -394,20 +481,20 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onDelete, isDele
           )}
 
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Content</p>
-            <div className="bg-gray-800/50 rounded-xl p-4 max-h-64 overflow-auto">
-              <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+            <p className="text-xs font-bold text-dim uppercase tracking-widest mb-2">Content</p>
+            <div className={`rounded-xl p-4 max-h-64 overflow-auto ${isDarkMode ? 'bg-graphite/20' : 'bg-stellar/30'}`}>
+              <p className={`text-sm leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-silver' : 'text-ink'}`}>
                 {article.full_content || article.raw_excerpt || article.summary_hint || 'No content available.'}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between p-4 border-t border-gray-800 gap-3">
+        <div className={`flex items-center justify-between p-4 border-t gap-3 ${isDarkMode ? 'border-graphite/40' : 'border-graphite/20'}`}>
           <button
             onClick={onDelete}
             disabled={isDeleting}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-danger hover:bg-danger/10 rounded-xl transition-colors"
           >
             <Trash2 className="w-4 h-4" />
             Delete
@@ -416,7 +503,7 @@ const ArticleModal: React.FC<ModalProps> = ({ article, onClose, onDelete, isDele
             href={article.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-xl transition-colors ${isDarkMode ? 'text-dim hover:bg-graphite/20 hover:text-silver' : 'text-muted hover:bg-stellar/30 hover:text-ink'}`}
           >
             <ExternalLink className="w-4 h-4" /> Source
           </a>

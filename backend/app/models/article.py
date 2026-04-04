@@ -27,7 +27,7 @@ class NormalizedArticle(BaseModel):
     published_at: datetime | None = None
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     raw_excerpt: str | None = None
-    kind: Literal["tavily", "manual"] = "tavily"
+    kind: Literal["tavily", "manual", "openai_search"] = "tavily"
 
     content_intelligence: ContentIntelligence = Field(default_factory=ContentIntelligence)
     full_content: str = ""
