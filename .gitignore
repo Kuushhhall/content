@@ -15,6 +15,9 @@ frontend/.env
 
 # Data
 backend/data/
+data/
+backend/sessions/
+nul
 
 # Node
 node_modules/
