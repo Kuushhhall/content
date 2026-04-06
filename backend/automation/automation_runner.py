@@ -736,14 +736,14 @@ async def post_specific_draft(draft_id: str) -> dict:
         if platform in ["linkedin", "linkedin_article"]:
             result = await post_to_linkedin(draft)
         elif platform == "framer":
-            result = post_to_framer(draft)
+            framer_result = post_to_framer(draft)
             result = {
                 "draft_id": draft.get("id"),
                 "title": draft.get("summary", "")[:80],
                 "platform": "framer",
-                "success": result.success,
-                "external_id": result.external_id,
-                "error": result.message if not result.success else None
+                "success": framer_result.success,
+                "external_id": framer_result.external_id,
+                "error": framer_result.message if not framer_result.success else None
             }
         elif platform in ["x", "twitter"]:
             return {"success": False, "error": "Twitter posting disabled"}
