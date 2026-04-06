@@ -804,7 +804,15 @@ async def execute_scheduled_action(time_slot: str, platform: str, action: str) -
         if platform in ["linkedin", "linkedin_article"]:
             result = await post_to_linkedin(draft)
         elif platform == "framer":
-            result = post_to_framer(draft)
+            framer_result = post_to_framer(draft)
+            result = {
+                "draft_id": draft.get("id"),
+                "title": draft.get("summary", "")[:80],
+                "platform": "framer",
+                "success": framer_result.success,
+                "external_id": framer_result.external_id,
+                "error": framer_result.message if not framer_result.success else None
+            }
         else:
             return {"success": False, "error": f"Unknown platform: {platform}"}
         
