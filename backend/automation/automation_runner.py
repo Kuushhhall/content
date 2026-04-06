@@ -71,12 +71,13 @@ def get_queue_for_today() -> list:
         {"time": "11:30", "platform": "framer", "action": "post", "title": None},
         {"time": "12:00", "platform": "framer", "action": "post", "title": None},
         {"time": "12:30", "platform": "framer", "action": "post", "title": None},
-        {"time": "13:00", "platform": "framer", "action": "post", "title": None},
+        {"time": "13:00", "platform": "linkedin_article", "action": "post", "title": None},
         {"time": "13:30", "platform": "framer", "action": "post", "title": None},
         {"time": "14:00", "platform": "framer", "action": "post", "title": None},
         {"time": "14:30", "platform": "framer", "action": "post", "title": None},
         {"time": "15:00", "platform": "framer", "action": "post", "title": None},
         {"time": "17:00", "platform": "linkedin", "action": "post", "title": None},
+        {"time": "18:00", "platform": "linkedin_article", "action": "post", "title": None},
     ]
     return queue
 
@@ -128,13 +129,21 @@ async def run_pipeline() -> dict:
         
         if result.returncode == 0:
             log.info("Pipeline completed successfully")
+            log.info("=== PIPELINE STDOUT ===")
+            log.info(result.stdout)
             return {"success": True, "output": result.stdout}
         else:
             log.error(f"Pipeline failed: {result.stderr}")
+            log.error("=== PIPELINE STDERR ===")
+            log.error(result.stderr)
+            log.error("=== PIPELINE STDOUT ===")
+            log.error(result.stdout)
             return {"success": False, "error": result.stderr}
     
     except Exception as e:
         log.error(f"Pipeline error: {e}")
+        import traceback
+        log.error(traceback.format_exc())
         return {"success": False, "error": str(e)}
 
 
@@ -143,7 +152,9 @@ async def post_to_linkedin(draft: dict) -> dict:
     import subprocess
     import json
     
-    content = draft.get("body", "")
+    # Pass the full draft dict to support articles with article_title, article_description
+    # Escape the JSON to avoid 'null' being interpreted as Python variable
+    draft_json = json.dumps(draft).replace('null', 'None')
     
     script = f'''
 import sys
@@ -152,7 +163,9 @@ import asyncio
 import json
 from automation.social_bot import post_to_linkedin
 async def main():
-    result = await post_to_linkedin({json.dumps(content)})
+    draft_json = {repr(draft_json)}
+    draft = json.loads(draft_json.replace('None', 'null'))
+    result = await post_to_linkedin(draft)
     print("RESULT:" + json.dumps(result))
 asyncio.run(main())
 '''
@@ -272,9 +285,11 @@ def update_queue_titles(status: dict) -> dict:
     used_ids = posted_ids + failed_ids
     
     linkedin_drafts = [d for d in drafts if d.get("platform") == "linkedin" and d.get("id") not in used_ids]
+    linkedin_article_drafts = [d for d in drafts if d.get("platform") == "linkedin_article" and d.get("id") not in used_ids]
     framer_drafts = [d for d in drafts if d.get("platform") == "framer" and d.get("id") not in used_ids]
     
     linkedin_idx = 0
+    linkedin_article_idx = 0
     framer_idx = 0
     
     for item in status.get("queue", []):
@@ -284,6 +299,12 @@ def update_queue_titles(status: dict) -> dict:
                 item["title"] = (draft.get("summary", "") or draft.get("body", "")[:80]) if draft else "No draft available"
                 item["draft_id"] = draft.get("id") if draft else None
                 linkedin_idx += 1
+            elif item.get("platform") == "linkedin_article" and linkedin_article_idx < len(linkedin_article_drafts):
+                draft = linkedin_article_drafts[linkedin_article_idx]
+                # Use article_title if available, otherwise fall back to summary/body
+                item["title"] = draft.get("article_title") or draft.get("summary") or draft.get("body", "")[:80] if draft else "No draft available"
+                item["draft_id"] = draft.get("id") if draft else None
+                linkedin_article_idx += 1
             elif item.get("platform") == "framer" and framer_idx < len(framer_drafts):
                 draft = framer_drafts[framer_idx]
                 item["title"] = (draft.get("summary", "") or draft.get("body", "")[:80]) if draft else "No draft available"
@@ -475,22 +496,36 @@ async def post_now_override() -> dict:
     drafts = state.get("drafts", [])
     
     linkedin_drafts = [d for d in drafts if d.get("platform") == "linkedin"]
+    linkedin_article_drafts = [d for d in drafts if d.get("platform") == "linkedin_article"]
     framer_drafts = [d for d in drafts if d.get("platform") == "framer"]
     
-    log.info(f"Found drafts - LinkedIn: {len(linkedin_drafts)}, Framer: {len(framer_drafts)}")
+    log.info(f"Found drafts - LinkedIn POST: {len(linkedin_drafts)}, LinkedIn ARTICLE: {len(linkedin_article_drafts)}, Framer: {len(framer_drafts)}")
     
     posted_count = 0
     
+    # Post LinkedIn POSTs
     for draft in linkedin_drafts:
         try:
             result = await post_to_linkedin(draft)
             record_posted(result)
             if result.get("success"):
                 posted_count += 1
-            log.info(f"Posted LinkedIn: {draft.get('id')[:8]}...")
+            log.info(f"Posted LinkedIn POST: {draft.get('id')[:8]}...")
             await asyncio.sleep(2)
         except Exception as e:
             log.error(f"Failed to post LinkedIn: {e}")
+    
+    # Post LinkedIn ARTICLES
+    for draft in linkedin_article_drafts:
+        try:
+            result = await post_to_linkedin(draft)
+            record_posted(result)
+            if result.get("success"):
+                posted_count += 1
+            log.info(f"Posted LinkedIn ARTICLE: {draft.get('id')[:8]}...")
+            await asyncio.sleep(2)
+        except Exception as e:
+            log.error(f"Failed to post LinkedIn ARTICLE: {e}")
     
     for draft in framer_drafts:
         try:
@@ -568,6 +603,7 @@ def get_status() -> dict:
     
     status["total_drafts"] = len(drafts)
     status["linkedin_drafts"] = len([d for d in drafts if d.get("platform") == "linkedin"])
+    status["linkedin_article_drafts"] = len([d for d in drafts if d.get("platform") == "linkedin_article"])
     status["framer_drafts"] = len([d for d in drafts if d.get("platform") == "framer"])
     status["x_drafts"] = len([d for d in drafts if d.get("platform") in ("x", "twitter")])
 
@@ -645,7 +681,7 @@ def retry_failed_post(draft_id: Optional[str] = None) -> dict:
         return {"success": False, "error": f"No {platform} draft available for retry"}
     
     import asyncio
-    if platform == "linkedin":
+    if platform in ["linkedin", "linkedin_article"]:
         result = asyncio.run(post_to_linkedin(draft))
     elif platform == "framer":
         result = post_to_framer(draft)
@@ -697,7 +733,7 @@ async def post_specific_draft(draft_id: str) -> dict:
     log.info(f"Posting specific draft: {draft_id} to {platform}")
     
     try:
-        if platform == "linkedin":
+        if platform in ["linkedin", "linkedin_article"]:
             result = await post_to_linkedin(draft)
         elif platform == "framer":
             result = post_to_framer(draft)
@@ -765,7 +801,7 @@ async def execute_scheduled_action(time_slot: str, platform: str, action: str) -
             log.warning(f"No available {platform} draft")
             return {"success": False, "error": "No draft available"}
         
-        if platform == "linkedin":
+        if platform in ["linkedin", "linkedin_article"]:
             result = await post_to_linkedin(draft)
         elif platform == "framer":
             result = post_to_framer(draft)

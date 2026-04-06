@@ -49,6 +49,8 @@ class DraftOut(BaseModel):
     platform: str
     body: str
     summary: str | None = None
+    article_title: str | None = None
+    article_description: str | None = None
 
 
 class DraftUpdateIn(BaseModel):

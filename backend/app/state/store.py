@@ -1,6 +1,7 @@
 import json
 import uuid
 from pathlib import Path
+import logging
 
 from app.models.article import NormalizedArticle
 from app.models.cycle import CycleProgress
@@ -9,6 +10,8 @@ from app.models.publish import PublishResult
 from app.models.schedule import ScheduledPost
 from app.state.models import CostRecord, RuntimeState
 from app.state.persistence import atomic_write_json, load_state, save_state
+
+log = logging.getLogger(__name__)
 
 
 class StateStore:
@@ -46,6 +49,8 @@ class StateStore:
         return self._state
 
     def _persist(self) -> None:
+        log.info("[STORE] Saving state to %s (articles: %d, drafts: %d)", 
+                 self._path, len(self._state.articles), len(self._state.drafts))
         save_state(self._path, self._state)
 
     # -------------------------------------------------------------------------
@@ -54,6 +59,7 @@ class StateStore:
 
     def upsert_article(self, article: NormalizedArticle) -> NormalizedArticle:
         self._state.articles[article.id] = article
+        log.info("[STORE] Article upserted: %s - %s", article.id, article.title[:50])
         self._persist()
         return article
 
@@ -98,6 +104,7 @@ class StateStore:
 
     def upsert_draft(self, draft: ContentDraft) -> ContentDraft:
         self._state.drafts[draft.id] = draft
+        log.info("[STORE] Draft upserted: %s - %s (platform: %s)", draft.id, draft.body[:50] if draft.body else "empty", draft.platform)
         self._persist()
         return draft
 

@@ -9,5 +9,8 @@ class ContentDraft(BaseModel):
     platform: str
     body: str
     summary: str | None = None
+    # LinkedIn article-specific fields
+    article_title: str | None = None
+    article_description: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

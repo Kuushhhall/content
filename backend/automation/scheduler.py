@@ -25,17 +25,17 @@ IST = pytz.timezone('Asia/Kolkata')
 SCHEDULE = [
     {"time": "10:00", "platform": "pipeline", "action": "run_pipeline"},
     {"time": "10:30", "platform": "framer", "action": "post"},
-    {"time": "11:00", "platform": "linkedin", "action": "post"},
+    {"time": "11:00", "platform": "linkedin", "action": "post"},  # LinkedIn POST
     {"time": "11:00", "platform": "framer", "action": "post"},
     {"time": "11:30", "platform": "framer", "action": "post"},
     {"time": "12:00", "platform": "framer", "action": "post"},
-    {"time": "12:30", "platform": "framer", "action": "post"},
-    {"time": "13:00", "platform": "framer", "action": "post"},
+    {"time": "13:00", "platform": "linkedin_article", "action": "post"},  # LinkedIn ARTICLE 1
     {"time": "13:30", "platform": "framer", "action": "post"},
     {"time": "14:00", "platform": "framer", "action": "post"},
     {"time": "14:30", "platform": "framer", "action": "post"},
     {"time": "15:00", "platform": "framer", "action": "post"},
-    {"time": "17:00", "platform": "linkedin", "action": "post"},
+    {"time": "17:00", "platform": "linkedin", "action": "post"},  # LinkedIn POST
+    {"time": "18:00", "platform": "linkedin_article", "action": "post"},  # LinkedIn ARTICLE 2
 ]
 
 
@@ -120,6 +120,7 @@ def get_scheduler() -> AsyncIOScheduler:
     """Create and configure the scheduler with all daily jobs."""
     scheduler = AsyncIOScheduler(timezone=IST)
     
+    # 10:00 - Pipeline (fetch articles + generate drafts)
     scheduler.add_job(
         lambda: run_async_action("10:00", "pipeline", "run_pipeline"),
         CronTrigger(hour=10, minute=0, timezone=IST),
@@ -128,6 +129,7 @@ def get_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
     )
     
+    # 10:30 - Framer
     scheduler.add_job(
         lambda: run_async_action("10:30", "framer", "post"),
         CronTrigger(hour=10, minute=30, timezone=IST),
@@ -136,11 +138,12 @@ def get_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
     )
     
+    # 11:00 - LinkedIn POST + Framer
     scheduler.add_job(
         lambda: run_async_action("11:00", "linkedin", "post"),
         CronTrigger(hour=11, minute=0, timezone=IST),
-        id="linkedin_1",
-        name="LinkedIn Post #1 (11 AM IST)",
+        id="linkedin_post_1",
+        name="LinkedIn POST #1 (11 AM IST)",
         replace_existing=True,
     )
     
@@ -152,6 +155,7 @@ def get_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
     )
     
+    # 11:30 - Framer
     scheduler.add_job(
         lambda: run_async_action("11:30", "framer", "post"),
         CronTrigger(hour=11, minute=30, timezone=IST),
@@ -160,6 +164,7 @@ def get_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
     )
     
+    # 12:00 - Framer
     scheduler.add_job(
         lambda: run_async_action("12:00", "framer", "post"),
         CronTrigger(hour=12, minute=0, timezone=IST),
@@ -168,59 +173,66 @@ def get_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
     )
     
+    # 13:00 - LinkedIn ARTICLE #1
     scheduler.add_job(
-        lambda: run_async_action("12:30", "framer", "post"),
-        CronTrigger(hour=12, minute=30, timezone=IST),
-        id="framer_5",
-        name="Framer Post #5 (12:30 PM IST)",
-        replace_existing=True,
-    )
-    
-    scheduler.add_job(
-        lambda: run_async_action("13:00", "framer", "post"),
+        lambda: run_async_action("13:00", "linkedin_article", "post"),
         CronTrigger(hour=13, minute=0, timezone=IST),
-        id="framer_6",
-        name="Framer Post #6 (1 PM IST)",
+        id="linkedin_article_1",
+        name="LinkedIn ARTICLE #1 (1 PM IST)",
         replace_existing=True,
     )
     
+    # 13:30 - Framer
     scheduler.add_job(
         lambda: run_async_action("13:30", "framer", "post"),
         CronTrigger(hour=13, minute=30, timezone=IST),
-        id="framer_7",
-        name="Framer Post #7 (1:30 PM IST)",
+        id="framer_5",
+        name="Framer Post #5 (1:30 PM IST)",
         replace_existing=True,
     )
     
+    # 14:00 - Framer
     scheduler.add_job(
         lambda: run_async_action("14:00", "framer", "post"),
         CronTrigger(hour=14, minute=0, timezone=IST),
-        id="framer_8",
-        name="Framer Post #8 (2 PM IST)",
+        id="framer_6",
+        name="Framer Post #6 (2 PM IST)",
         replace_existing=True,
     )
     
+    # 14:30 - Framer
     scheduler.add_job(
         lambda: run_async_action("14:30", "framer", "post"),
         CronTrigger(hour=14, minute=30, timezone=IST),
-        id="framer_9",
-        name="Framer Post #9 (2:30 PM IST)",
+        id="framer_7",
+        name="Framer Post #7 (2:30 PM IST)",
         replace_existing=True,
     )
     
+    # 15:00 - Framer
     scheduler.add_job(
         lambda: run_async_action("15:00", "framer", "post"),
         CronTrigger(hour=15, minute=0, timezone=IST),
-        id="framer_10",
-        name="Framer Post #10 (3 PM IST)",
+        id="framer_8",
+        name="Framer Post #8 (3 PM IST)",
         replace_existing=True,
     )
     
+    # 17:00 - LinkedIn POST #2
     scheduler.add_job(
         lambda: run_async_action("17:00", "linkedin", "post"),
         CronTrigger(hour=17, minute=0, timezone=IST),
-        id="linkedin_2",
-        name="LinkedIn Post #2 (5 PM IST)",
+        id="linkedin_post_2",
+        name="LinkedIn POST #2 (5 PM IST)",
+        replace_existing=True,
+    )
+    
+    # 18:00 - LinkedIn ARTICLE #2
+    scheduler.add_job(
+        lambda: run_async_action("18:00", "linkedin_article", "post"),
+        CronTrigger(hour=18, minute=0, timezone=IST),
+        id="linkedin_article_2",
+        name="LinkedIn ARTICLE #2 (6 PM IST)",
         replace_existing=True,
     )
     

@@ -89,6 +89,8 @@ export type Draft = {
   platform: string
   body: string
   summary: string | null
+  article_title: string | null
+  article_description: string | null
 }
 
 export type Schedule = {

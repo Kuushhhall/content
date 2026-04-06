@@ -101,21 +101,21 @@ Example:
     return selected_ids[:10]
 
 
-GENERATOR_SYSTEM_PROMPT = """You are "Lawxy Times Reporter" — sharp, analytical, with dry wit.
-
-Voice: Insider speaking to other smart professionals
-Tone: Clear factual news first, then interpretation and implications
-Wit: Subtle, intelligent, never forced
-Hard rules: No corporate tone, no generic takeaways
-Style: Short paragraphs, high signal, focus on "why" and "so what"
-
-Follow instructions exactly. Output only what is asked."""
+GENERATOR_SYSTEM_PROMPT = """You are "Lawxy Times Reporter" — sharp, analytical, with dry wit. Your job is to take a legal news article and generate content for platforms like LinkedIn, Framer CMS, and X/Twitter. You have deep legal knowledge and a journalist's instinct for what will engage readers."""
 
 
-async def generate_linkedin_post(article: NormalizedArticle, settings: Settings, cycle_id: str, store: StateStore) -> str:
-    """Generate a single LinkedIn post for an article."""
+async def generate_linkedin_post(article: NormalizedArticle, settings: Settings, cycle_id: str, store: StateStore) -> dict:
+    """Generate a single LinkedIn article for an article.
+    
+    Returns dict with:
+    - article_title: Catchy headline for the article
+    - body: Full article content (~400-500 words)
+    - article_description: Short 1-2 sentence description for LinkedIn feed
+    """
+    import json
+    
     content = article.full_content or article.summary_hint or article.title
-    prompt = f"""You are "Lawxy Times Reporter." Write a viral, high-engagement LinkedIn post about this Indian legal news. Hook hard. Keep it punchy. Make people stop scrolling.
+    prompt = f"""You are "Lawxy Times Reporter." Write a viral, high-engagement LinkedIn ARTICLE about this Indian legal news.
 
 Article:
 {article.title}
@@ -124,9 +124,9 @@ Article:
 Content:
 {content[:6000]}
 
-━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 UNICODE BOLD RULES — CRITICAL
-━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 To make text bold on LinkedIn you MUST use Unicode bold characters. Do NOT use ** asterisks **.
 
 Unicode bold alphabet (use these exact characters):
@@ -139,48 +139,47 @@ Examples of correct Unicode bold usage:
 - "𝗜𝗻𝗰𝗼𝗺𝗲 𝗧𝗮𝘅" not "**Income Tax**"
 - "𝗦𝘂𝗽𝗿𝗲𝗺𝗲 𝗖𝗼𝘂𝗿𝘁" not "**Supreme Court**"
 
-Only bold 3-6 key terms per post — the ones that carry the most weight or will catch a skimming eye. Do NOT bold every noun.
-
-━━━━━━━━━━━━━━━━━━━━━━
-POST STRUCTURE (no labels, no headers — just raw flowing text)
-━━━━━━━━━━━━━━━━━━━━━━
-
-1. HOOK (1 sentence, max 15 words)
-   - Drop the most shocking or counterintuitive fact from the story.
-   - Make it feel urgent. Make it feel like something just changed.
-   - Examples of hook energy: "A court just told a regulator to explain itself." / "India's top court froze a tax demand — and the reason matters more than the order."
-
-2. CONTEXT (2-3 short paragraphs, 2 sentences max each)
-   - What happened. Why it happened. What system failure or tension caused it.
-   - No fluff. Every sentence must add information.
-
-3. THE REAL STORY (1-2 paragraphs)
-   - What's actually at stake. The non-obvious angle. The second-order consequence most people miss.
-   - This is where your sharpest insight goes.
-
-4. THE SO WHAT (1 tight paragraph)
-   - What this signals for the future. One clean, memorable takeaway.
-
-5. CLOSING QUESTION (1 sentence)
-   - A sharp, specific question that makes someone want to reply.
-   - Not generic ("what do you think?"). Something that shows you've thought about it.
-
-6. HASHTAGS
-   - 5-7 relevant hashtags on a new line. No "hashtag#" prefix — just #Tag format.
-
-━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ABSOLUTE RULES
-━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Zero ** asterisks ** anywhere. Unicode bold only.
-- No section labels ("THE BREAKDOWN", "THE IMPACT", "For Lawyers:", "For Citizens:" etc.)
-- No "Here is your post" or any meta-commentary.
-- No bullet point lists anywhere in the post body.
-- Each paragraph separated by one blank line.
-- Total length: 180-280 words (tight, punchy, scroll-stopping).
+- No section labels or headers.
+- Each paragraph should be 1-3 sentences max.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT - JSON ONLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Return ONLY a valid JSON object with these exact keys - no other text:
+
+{{
+  "article_title": "A catchy, attention-grabbing headline (max 100 chars)",
+  "body": "Full article content in 400-500 words with Unicode bold for key terms",
+  "article_description": "Short 1-2 sentence description that appears in the LinkedIn feed (max 200 chars)"
+}}
+
+The article_title should be compelling and make people want to click.
+The body should be more than just a summary - add sharp insight or surprising angle.
+The article_description should summarize what readers will learn/entitled.
 """
     body, usage = await _complete_with_usage(settings, GENERATOR_SYSTEM_PROMPT, prompt)
     store.record_llm_cost(cycle_id, settings.llm_model or "unknown", "linkedin_post", usage)
-    return body
+    
+    # Parse JSON from response
+    parsed = _extract_json_object(body)
+    try:
+        result = json.loads(parsed)
+        # Validate required fields
+        if not result.get("article_title") or not result.get("body"):
+            raise ValueError("Missing required fields")
+        return result
+    except (json.JSONDecodeError, ValueError) as e:
+        # Fallback: use original content as body, generate title from article
+        log.warning("[%s] Failed to parse LinkedIn JSON, using fallback: %s", cycle_id, e)
+        return {
+            "article_title": article.title[:100],
+            "body": body,
+            "article_description": article.summary_hint[:200] if article.summary_hint else ""
+        }
 
 
 async def generate_framer_content(article: NormalizedArticle, settings: Settings, cycle_id: str, store: StateStore) -> dict:
@@ -188,25 +187,7 @@ async def generate_framer_content(article: NormalizedArticle, settings: Settings
     content = article.full_content or article.summary_hint or article.title
     prompt = f"""You are "Lawxy Times Reporter" - a sharp, highly intelligent legal mind with dry wit.
 
-Voice:
-- Think: top-tier law firm partner who sees second-order consequences
-- Decode the news in simple language for a broad audience while providing deep insight.
 
-Tone:
-- Opening: sharp observation or framing (only slightly witty if appropriate)
-- Body: clear, structured breakdown
-- Analysis: deep, non-obvious implications
-- Ending: pattern recognition or forward-looking insight
-
-Wit: Dry, controlled, minimal — used only to expose irony or inefficiency
-Sensitivity override: If serious topic, remove wit entirely
-
-Hard rules:
-- NEVER mention any product or company
-- No filler, no generic commentary
-- No exaggerated claims
-
----
 
 ### INPUT ARTICLE:
 Title: {article.title}
@@ -214,29 +195,8 @@ Source: {article.source}
 URL: {article.url}
 Content: {content[:6000]}
 
----
 
-### INSTRUCTIONS
-
-#### 1. Classify Content Type (choose ONE):
-news / explainer / opinion / guide
-
-#### 2. Select Categories (MAX 3, only from this list):
-Litigation, AI in Legal, Legal Tech & AI, Regulatory, Legal Guides, Judgements & Cases, Disputes & Enforcement, Compliance & Risk, Commercial & Transactions, Legal Updates
-
-#### 3. Write Article Body (700-900 words)
-Use HTML tags for all headers and paragraphs.
-Organize into 4-5 distinct sections with original, journalistic headers.
-Do NOT use generic headers like "Overview" or "Impact".
-Cover: Introduction & Context → Core Dispute/Event → Plain English Breakdown → Multi-Stakeholder Impact → Forward-Looking Analysis
-End with: <em>By Lawxy Times Reporter</em>
-
-#### 4. Write Excerpt — exactly 2 lines, engaging, captures core insight
-
-#### 5. Add Sources — 1-3 real sources, format: title + url
-
----
-
+Write a complete article for Framer CMS in around 700-900 words based on the following Indian legal news. The output MUST be a JSON object with these exact keys:
 ### OUTPUT FORMAT (STRICT JSON ONLY)
 {{
   "type": "news",
@@ -246,6 +206,29 @@ End with: <em>By Lawxy Times Reporter</em>
   "content": "<h2>...</h2><p>...</p>",
   "sources": [{{"title": "...", "url": "{article.url}"}}]
 }}
+
+Title should be very CRISP AND CLICKBAITY, not a bland summary. Excerpt should be engaging and make people want to read.Content should be very detailed and professional. Content should use HTML tags for formatting (e.g., <h2>, <p>) and be more than just a summary - add sharp insights or surprising angles. Include the original article as a source with its title and URL. 
+
+### INSTRUCTIONS
+
+#### 1. Classify Content Type (choose ONE):
+news / explainer / opinion / guide
+
+#### 2. Select Categories (MAX 3, only from this list):
+Litigation, AI in Legal, Legal Tech & AI, Regulatory, Legal Guides, Judgements & Cases, Disputes & Enforcement, Compliance & Risk, Commercial & Transactions, Legal Updates
+
+#### 3. Write Article Body
+Use HTML tags for all headers and paragraphs.
+Organize into 4-5 distinct sections with original, journalistic headers.
+End with: <em>By Lawxy Times Reporter</em>
+
+#### 4. Write Excerpt — 
+
+#### 5. Add Sources — 1-3 real sources, format: title + url
+
+---
+
+
 
 ### HARD RULES
 - Return ONLY valid JSON (no markdown blocks, no explanation)
@@ -354,6 +337,25 @@ def _extract_json_block(text: str) -> str:
             return text
 
 
+def _extract_json_object(text: str) -> str:
+    """Extract a JSON object from text."""
+    text = text.strip()
+    m = re.search(r"\{[\s\S]*\}", text)
+    if not m:
+        return text
+    blob = m.group(0)
+    try:
+        json.loads(blob)
+        return blob
+    except json.JSONDecodeError:
+        cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', blob)
+        try:
+            json.loads(cleaned)
+            return cleaned
+        except json.JSONDecodeError:
+            return text
+
+
 async def generate_and_save_draft(
     store: StateStore,
     settings: Settings,
@@ -367,14 +369,28 @@ async def generate_and_save_draft(
     log.info("[%s] Generating %s draft for: %s", cycle_id, platform, article.title[:60])
 
     if platform == "linkedin":
-        body = await generate_linkedin_post(article, settings, cycle_id, store)
+        # Simple LinkedIn post - just body content, no article_title/description
+        linkedin_data = await generate_linkedin_post(article, settings, cycle_id, store)
+        body = linkedin_data.get("body", "")
+        article_title = None
+        article_description = None
+    elif platform == "linkedin_article":
+        # LinkedIn Article - includes article_title and article_description
+        linkedin_data = await generate_linkedin_post(article, settings, cycle_id, store)
+        body = linkedin_data.get("body", "")
+        article_title = linkedin_data.get("article_title", "")
+        article_description = linkedin_data.get("article_description", "")
     elif platform == "framer":
         data = await generate_framer_content(article, settings, cycle_id, store)
         if article.image_url:
             data["image_url"] = article.image_url
         body = json.dumps(data)
+        article_title = None
+        article_description = None
     elif platform == "x":
         body = await generate_x_thread(article, settings, cycle_id, store)
+        article_title = None
+        article_description = None
     else:
         raise ValueError(f"Unknown platform: {platform}")
 
@@ -383,7 +399,9 @@ async def generate_and_save_draft(
         article_id=article.id,
         platform=platform,
         body=body,
-        summary=article.title,
+        summary=article_title or article.title,
+        article_title=article_title,
+        article_description=article_description,
         updated_at=datetime.now(UTC),
     )
     store.upsert_draft(draft)
@@ -408,7 +426,21 @@ async def search_and_rank_articles(
     # Always use real OpenAI for Responses API (web_search_preview not available on Groq)
     client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-    query = """Find the top 10 Indian legal news articles from the past 7 days \
+    # Get previously drafted articles to exclude
+    existing_drafts = store.list_drafts()
+    existing_article_titles = set()
+    for draft in existing_drafts:
+        if draft.summary:
+            existing_article_titles.add(draft.summary)
+        if hasattr(draft, 'article_title') and draft.article_title:
+            existing_article_titles.add(draft.article_title)
+    
+    exclusion_block = ""
+    if existing_article_titles:
+        titles_list = "\n".join([f"- {title}" for title in list(existing_article_titles)[:30]])
+        exclusion_block = f"\n\nIMPORTANT: EXCLUDE these articles we've already covered (do NOT return any of these, skip them and find different ones):\n{titles_list}\n"
+
+    query = f"""Find the top 10 Indian legal news articles from the past 7 days \
 (prioritizing past 24 hours > past 3 days > past 7 days) that are getting traction \
 on social media from these sources: livelaw.in, barandbench.com, indialegallive.com, \
 economictimes.indiatimes.com.
@@ -417,8 +449,7 @@ Select articles with the highest viral/engagement potential. Prioritize:
 - High-stakes litigation, landmark judgements
 - AI & Legal Tech developments in India
 - Regulatory changes affecting lawyers or citizens
-- Controversial or surprising legal decisions
-
+- Controversial or surprising legal decisions{exclusion_block}
 Return ONLY a valid JSON array of exactly 10 objects with no extra text:
 [
   {
@@ -436,12 +467,19 @@ virality_score is 1-10 (10 = highest viral potential).
 category must be one of: Litigation, AI in Legal, Regulatory, Legal Guides, Judgements & Cases, Disputes & Enforcement, Compliance & Risk, Commercial & Transactions, Legal Updates"""
 
     search_model = settings.llm_model or "gpt-4o"
-    log.info("[%s] Calling OpenAI Responses API (model=%s) with web_search_preview...", cycle_id, search_model)
+    log.info("[%s] ============================================================", cycle_id)
+    log.info("[%s] STEP 1: OPENAI WEB SEARCH", cycle_id)
+    log.info("[%s] Model: %s", cycle_id, search_model)
+    log.info("[%s] Query: %s", cycle_id, query[:200] + "...")
+    log.info("[%s] ============================================================", cycle_id)
+    
     resp = await client.responses.create(
         model=search_model,
         tools=[{"type": "web_search_preview", "search_context_size": "medium"}],
         input=query,
     )
+    
+    log.info("[%s] OpenAI API response received", cycle_id)
 
     # Record cost — Responses API exposes usage on resp.usage
     try:
@@ -454,24 +492,32 @@ category must be one of: Litigation, AI in Legal, Regulatory, Legal Guides, Judg
     except Exception:
         usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     store.record_llm_cost(cycle_id, search_model, "web_search_rank", usage)
+    log.info("[%s] LLM Cost recorded: prompt=%d, completion=%d, total=%d", 
+             cycle_id, usage["prompt_tokens"], usage["completion_tokens"], usage["total_tokens"])
 
     raw = resp.output_text
-    log.info("[%s] Responses API returned %d chars, tokens=%s", cycle_id, len(raw), usage)
+    log.info("[%s] Raw response length: %d chars", cycle_id, len(raw))
 
     # Parse JSON from response
+    log.info("[%s] Parsing JSON response...", cycle_id)
     parsed = _extract_json_array(raw)
     try:
         items = json.loads(parsed)
         if not isinstance(items, list):
             raise ValueError("Expected JSON array")
+        log.info("[%s] Successfully parsed %d articles from JSON", cycle_id, len(items))
     except (json.JSONDecodeError, ValueError) as e:
         log.error("[%s] Failed to parse Responses API JSON: %s\nRaw: %s", cycle_id, e, raw[:500])
         raise RuntimeError(f"OpenAI Responses API returned invalid JSON: {e}") from e
 
+    # Create NormalizedArticle objects
+    log.info("[%s] Creating article objects...", cycle_id)
     articles = []
-    for item in items[:10]:
+    for idx, item in enumerate(items[:10]):
         url = item.get("url", "")
+        title = item.get("title", "")
         if not url:
+            log.warning("[%s] Article %d: No URL, skipping", cycle_id, idx + 1)
             continue
         article_id = "os_" + hashlib.sha256(url.encode()).hexdigest()[:12]
         ci = ContentIntelligence(
@@ -482,7 +528,7 @@ category must be one of: Litigation, AI in Legal, Regulatory, Legal Guides, Judg
         article = NormalizedArticle(
             id=article_id,
             source=item.get("source", "OpenAI Search"),
-            title=item.get("title", ""),
+            title=title,
             url=url,
             summary_hint=item.get("content", "")[:600],
             full_content=item.get("content", ""),
@@ -494,8 +540,11 @@ category must be one of: Litigation, AI in Legal, Regulatory, Legal Guides, Judg
         )
         articles.append(article)
         store.upsert_article(article)
+        log.info("[%s] Article %d saved: %s", cycle_id, len(articles), title[:50])
 
-    log.info("[%s] Parsed %d articles from Responses API", cycle_id, len(articles))
+    log.info("[%s] ============================================================", cycle_id)
+    log.info("[%s] STEP 1 COMPLETE: %d articles fetched and saved to store", cycle_id, len(articles))
+    log.info("[%s] ============================================================", cycle_id)
     return articles
 
 
@@ -560,31 +609,59 @@ async def run_full_cycle(store: StateStore, settings: Settings) -> dict:
         # Step 2: Generate drafts concurrently
         progress.step = "generating_drafts"
         num_articles = min(len(top_10), 10)
-        num_linkedin = min(2, num_articles)
+        num_linkedin_post = min(2, num_articles)  # Top 2 for simple posts
+        num_linkedin_article = min(2, num_articles)  # Next 2 for articles
         num_framer = num_articles
         num_x = num_articles
-        progress.step_detail = f"Generating {num_linkedin + num_framer + num_x} drafts..."
+        progress.step_detail = f"Generating {num_linkedin_post + num_linkedin_article + num_framer + num_x} drafts..."
         store.set_cycle_progress(progress)
-        log.info("[%s] Step 2/2: Generating %d drafts (%d LinkedIn + %d Framer + %d X)...",
-                 cycle_id, num_linkedin + num_framer + num_x, num_linkedin, num_framer, num_x)
+        log.info("[%s] Step 2/2: Generating %d drafts (%d LinkedIn Post + %d LinkedIn Article + %d Framer + %d X)...",
+                 cycle_id, num_linkedin_post + num_linkedin_article + num_framer + num_x, 
+                 num_linkedin_post, num_linkedin_article, num_framer, num_x)
 
         drafts_created = []
         errors = []
 
-        # LinkedIn posts from top articles (up to 2)
-        for i, article in enumerate(top_10[:num_linkedin]):
+        # LinkedIn POSTS from top 2 articles (simple posts - just body)
+        log.info("[%s] ============================================================", cycle_id)
+        log.info("[%s] STEP 2: GENERATING LINKEDIN POSTS (%d)", cycle_id, num_linkedin_post)
+        log.info("[%s] ============================================================", cycle_id)
+        for i, article in enumerate(top_10[:num_linkedin_post]):
             try:
+                log.info("[%s] Generating LinkedIn POST %d/%d: %s", cycle_id, i+1, num_linkedin_post, article.title[:60])
                 draft = await generate_and_save_draft(store, settings, article, "linkedin", cycle_id)
                 drafts_created.append(draft)
                 progress.drafts_created = len(drafts_created)
-                progress.step_detail = f"LinkedIn {i+1}/2 done"
+                progress.step_detail = f"LinkedIn Post {i+1}/2 done"
                 store.set_cycle_progress(progress)
+                log.info("[%s] LinkedIn POST %d saved: %s", cycle_id, i+1, draft.id)
             except Exception as e:
-                log.error("[%s] Failed LinkedIn draft for '%s': %s", cycle_id, article.title[:40], e)
-                errors.append(f"LinkedIn: {article.title[:40]} - {e}")
+                log.error("[%s] Failed LinkedIn POST for '%s': %s", cycle_id, article.title[:40], e)
+                errors.append(f"LinkedIn POST: {article.title[:40]} - {e}")
+
+        # LinkedIn ARTICLES from next 2 articles (rank 3-4) - these will be articles with title + description
+        log.info("[%s] ============================================================", cycle_id)
+        log.info("[%s] STEP 3: GENERATING LINKEDIN ARTICLES (%d)", cycle_id, num_linkedin_article)
+        log.info("[%s] ============================================================", cycle_id)
+        start_idx = num_linkedin_post  # Start from index 2 (after posts)
+        for i, article in enumerate(top_10[start_idx:start_idx + num_linkedin_article]):
+            try:
+                log.info("[%s] Generating LinkedIn ARTICLE %d/%d: %s", cycle_id, i+1, num_linkedin_article, article.title[:60])
+                # Use "linkedin_article" platform for articles
+                draft = await generate_and_save_draft(store, settings, article, "linkedin_article", cycle_id)
+                drafts_created.append(draft)
+                progress.drafts_created = len(drafts_created)
+                progress.step_detail = f"LinkedIn Article {i+1}/2 done"
+                store.set_cycle_progress(progress)
+                log.info("[%s] LinkedIn ARTICLE %d saved: %s", cycle_id, i+1, draft.id)
+            except Exception as e:
+                log.error("[%s] Failed LinkedIn ARTICLE for '%s': %s", cycle_id, article.title[:40], e)
+                errors.append(f"LinkedIn ARTICLE: {article.title[:40]} - {e}")
 
         # Framer posts - generate concurrently
-        log.info("[%s] Starting Framer draft generation for %d articles", cycle_id, num_framer)
+        log.info("[%s] ============================================================", cycle_id)
+        log.info("[%s] STEP 3: GENERATING FRAMER DRAFTS (%d)", cycle_id, num_framer)
+        log.info("[%s] ============================================================", cycle_id)
         async def gen_framer(article):
             try:
                 log.info("[%s] Generating Framer for: %s", cycle_id, article.title[:40])
@@ -606,9 +683,15 @@ async def run_full_cycle(store: StateStore, settings: Settings) -> dict:
         store.set_cycle_progress(progress)
 
         # X threads - generate concurrently
+        log.info("[%s] ============================================================", cycle_id)
+        log.info("[%s] STEP 4: GENERATING X/TWITTER DRAFTS (%d)", cycle_id, num_x)
+        log.info("[%s] ============================================================", cycle_id)
+        
         async def gen_x(article):
             try:
+                log.info("[%s] Generating X draft for: %s", cycle_id, article.title[:60])
                 draft = await generate_and_save_draft(store, settings, article, "x", cycle_id)
+                log.info("[%s] X draft saved: %s", cycle_id, draft.id)
                 return draft
             except Exception as e:
                 log.error("[%s] Failed X draft for '%s': %s", cycle_id, article.title[:40], e)
@@ -624,14 +707,23 @@ async def run_full_cycle(store: StateStore, settings: Settings) -> dict:
         store.set_cycle_progress(progress)
 
         # Compute cycle cost from all tracked records
-        cycle_cost = store.get_cycle_cost(cycle_id)
+        try:
+            cycle_cost = store.get_cycle_cost(cycle_id)
+        except Exception as e:
+            log.warning("[%s] Could not get cycle cost: %s", cycle_id, e)
+            cycle_cost = {"total_usd": 0, "total_inr": 0}
 
         # Mark completed
         progress.status = "completed"
         progress.finished_at = datetime.now(UTC).isoformat()
         progress.step = "complete"
-        progress.cycle_cost_usd = cycle_cost["total_usd"]
-        progress.cycle_cost_inr = cycle_cost["total_inr"]
+        try:
+            progress.cycle_cost_usd = cycle_cost["total_usd"]
+            progress.cycle_cost_inr = cycle_cost["total_inr"]
+        except Exception as e:
+            log.warning("[%s] Could not set cycle cost: %s", cycle_id, e)
+            progress.cycle_cost_usd = 0
+            progress.cycle_cost_inr = 0
         progress.step_detail = (
             f"Cycle complete: {len(drafts_created)} drafts, {len(errors)} errors "
             f"| Cost: ₹{cycle_cost['total_inr']:.4f} (${cycle_cost['total_usd']:.6f})"
@@ -659,10 +751,25 @@ async def run_full_cycle(store: StateStore, settings: Settings) -> dict:
 
     except Exception as e:
         log.exception("[%s] CYCLE FAILED: %s", cycle_id, e)
+        
+        # ALWAYS record cost even if cycle failed - the LLM was called and cost incurred
+        try:
+            cost_record = store.get_cycle_cost(cycle_id)
+            log.info("[%s] Cost tracking on failure: $%.6f (₨%.4f)", 
+                     cycle_id, cost_record["total_usd"], cost_record["total_inr"])
+        except Exception as cost_err:
+            log.warning("[%s] Could not get cost on failure: %s", cycle_id, cost_err)
+        
         progress.status = "failed"
         progress.finished_at = datetime.now(UTC).isoformat()
         progress.step = "failed"
         progress.step_detail = str(e)
         progress.errors.append(str(e))
-        store.set_cycle_progress(progress)
+        
+        # Try to save progress even on failure
+        try:
+            store.set_cycle_progress(progress)
+        except Exception as save_err:
+            log.warning("[%s] Could not save progress on failure: %s", cycle_id, save_err)
+        
         raise

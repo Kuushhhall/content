@@ -35,24 +35,44 @@ async def _human_delay(min_seconds: float = 1.0, max_seconds: float = 3.0):
     await asyncio.sleep(delay)
 
 
-async def post_to_linkedin(content: str, company_id: Optional[str] = "112519238") -> dict:
+async def post_to_linkedin(draft: dict, company_id: Optional[str] = "112519238") -> dict:
     """
     Post to LinkedIn company page using saved session.
     
+    Supports both simple posts and articles:
+    - Simple post: {"body": "content string"}
+    - Article: {"article_title": "...", "body": "...", "article_description": "..."}
+    
     Args:
-        content: The post content to publish
+        draft: Dictionary with post/article content
         company_id: Company page ID (default: 112519238)
     
     Returns:
         dict with success status and details
     """
     import json
+    
+    # Handle both dict (new format) and string (old format)
+    if isinstance(draft, str):
+        # Old format: just body content
+        content = draft
+        article_title = None
+        article_description = None
+    else:
+        # New format: dict with article_title, body, article_description
+        article_title = draft.get("article_title")
+        article_description = draft.get("article_description")
+        content = draft.get("body", "")
+    
     session_file = SESSIONS_DIR / "linkedin_auth.json"
     
     if not session_file.exists():
         return {"success": False, "error": "No LinkedIn session found. Run auth_generator.py first."}
     
-    log.info("Posting to LinkedIn company page...")
+    # Determine which flow to use based on whether we have article_title
+    use_article_flow = bool(article_title)
+    
+    log.info("Posting to LinkedIn company page... (article_flow: %s)", use_article_flow)
     
     try:
         async with async_playwright() as p:
@@ -64,78 +84,206 @@ async def post_to_linkedin(content: str, company_id: Optional[str] = "112519238"
             await page.goto(company_page_url, wait_until="domcontentloaded")
             await _human_delay(4, 6)
             
-            post_buttons = ["Create a post", "Start a post", "Create post", "New post"]
-            clicked = False
-            
-            for btn_text in post_buttons:
+            if use_article_flow:
+                # === ARTICLE FLOW ===
+                log.info("Using Article flow...")
+                
+                # Click "Write an article" button
+                article_buttons = ["Write an article", "Article", "Create article"]
+                clicked = False
+                
+                for btn_text in article_buttons:
+                    try:
+                        btn = page.get_by_role("button", name=btn_text, exact=False)
+                        if await btn.count() > 0:
+                            await btn.first.click()
+                            log.info("Clicked '%s'", btn_text)
+                            clicked = True
+                            break
+                    except Exception:
+                        continue
+                
+                if not clicked:
+                    # Fallback: try link with article text
+                    try:
+                        article_link = page.locator("a:has-text('article'), button:has-text('article')").first
+                        if await article_link.count() > 0:
+                            await article_link.click()
+                            log.info("Clicked article link/button")
+                            clicked = True
+                    except Exception:
+                        pass
+                
+                if not clicked:
+                    await browser.close()
+                    return {"success": False, "error": "Could not find 'Write an article' button"}
+                
+                await _human_delay(3, 5)
+                log.info("Article editor URL: %s", page.url)
+                
+                # Fill title
                 try:
-                    btn = page.get_by_role("button", name=btn_text, exact=False)
-                    if await btn.count() > 0:
-                        await btn.click()
-                        log.info(f"Clicked '{btn_text}'")
-                        clicked = True
-                        break
-                except Exception:
-                    continue
-            
-            if not clicked:
-                admin_area = page.locator("main").first
-                any_post_btn = admin_area.get_by_role("button", name="post", exact=False)
-                if await any_post_btn.count() > 0:
-                    await any_post_btn.first.click()
-                    log.info("Clicked fallback post button")
-                    clicked = True
-            
-            if not clicked:
-                await browser.close()
-                return {"success": False, "error": "Could not find post creation button"}
-            
-            await _human_delay(2, 3)
-            
-            editor = page.get_by_role("textbox", name="Text editor")
-            await editor.wait_for(state="visible", timeout=10000)
-            await editor.click()
-            await _human_delay(1, 2)
-            
-            await page.evaluate(f"navigator.clipboard.writeText({json.dumps(content)})")
-            await _human_delay(0.5, 1)
-            await page.keyboard.press("Control+V")
-            await _human_delay(2, 3)
-            
-            dialog = page.locator('div[role="dialog"]').last
-            if await dialog.count() > 0:
-                post_btn = dialog.locator("button.share-actions__primary-action")
+                    title_input = page.get_by_placeholder("Title", exact=False)
+                    await title_input.fill(article_title or "")
+                    log.info("Title filled")
+                except Exception as e:
+                    log.warning("Title input not found: %s", e)
+                
+                await _human_delay(1, 2)
+                
+                # Fill body
+                try:
+                    text_editor = page.locator('div[role="textbox"]').first
+                    await text_editor.click()
+                    await _human_delay(0.5, 1)
+                    await page.evaluate(f"navigator.clipboard.writeText({json.dumps(content)})")
+                    await _human_delay(0.3, 0.5)
+                    await page.keyboard.press("Control+V")
+                    log.info("Body pasted")
+                except Exception as e:
+                    log.warning("Text editor not found, typing directly: %s", e)
+                    await page.keyboard.type(content, delay=50)
+                
+                await _human_delay(2, 3)
+                
+                # Click Next
+                try:
+                    next_btn = page.get_by_role("button", name="Next", exact=False).first
+                    if await next_btn.count() > 0:
+                        await next_btn.click()
+                        log.info("Clicked Next")
+                        await _human_delay(2, 3)
+                except Exception as e:
+                    log.warning("Next button not found: %s", e)
+                
+                # Fill description
+                try:
+                    desc_input = page.get_by_placeholder("Tell your network what your article is about", exact=False)
+                    if await desc_input.count() > 0:
+                        await desc_input.fill(article_description or "")
+                        log.info("Description filled")
+                except Exception as e:
+                    log.warning("Description field not found: %s", e)
+                
+                await _human_delay(1, 2)
+                
+                # Click Post
+                try:
+                    publish_btn = page.get_by_role("button", name="Publish", exact=False).first
+                    if await publish_btn.count() > 0:
+                        await publish_btn.click()
+                        log.info("Clicked Publish")
+                        await _human_delay(3, 5)
+                    else:
+                        post_btn = page.get_by_role("button", name="Post", exact=False).first
+                        if await post_btn.count() > 0:
+                            await post_btn.click()
+                            log.info("Clicked Post")
+                            await _human_delay(3, 5)
+                except Exception as e:
+                    log.warning("Publish/Post button not found: %s", e)
+                    
             else:
-                post_btn = page.locator("button.share-actions__primary-action")
+                # === SIMPLE POST FLOW (original) ===
+                log.info("Using Simple Post flow...")
+                
+                # Step 1: Click "Start a post" or similar button
+                post_buttons = ["Start a post", "Create a post", "Create post", "New post", "Post"]
+                clicked = False
+                
+                for btn_text in post_buttons:
+                    try:
+                        btn = page.get_by_role("button", name=btn_text, exact=False)
+                        if await btn.count() > 0:
+                            await btn.first.click()
+                            log.info(f"Clicked '{btn_text}'")
+                            clicked = True
+                            break
+                    except Exception:
+                        continue
+                
+                if not clicked:
+                    # Fallback: try to find any button with post text
+                    try:
+                        admin_area = page.locator("main").first
+                        any_post_btn = admin_area.get_by_role("button", name="post", exact=False)
+                        if await any_post_btn.count() > 0:
+                            await any_post_btn.first.click()
+                            log.info("Clicked fallback post button")
+                            clicked = True
+                    except Exception:
+                        pass
+                
+                if not clicked:
+                    await browser.close()
+                    return {"success": False, "error": "Could not find post creation button"}
+                
+                await _human_delay(3, 5)
+                
+                # Step 2: Find and click the text editor area
+                try:
+                    # Try to find the textbox
+                    textboxes = [
+                        page.locator('div[role="textbox"]').first,
+                        page.locator("div[contenteditable='true']").first,
+                    ]
+                    
+                    for tb in textboxes:
+                        try:
+                            if await tb.count() > 0:
+                                await tb.click()
+                                log.info("Clicked text editor")
+                                break
+                        except:
+                            continue
+                    
+                    await _human_delay(1, 2)
+                    
+                    # Step 3: Paste content
+                    await page.evaluate(f"navigator.clipboard.writeText({json.dumps(content)})")
+                    await _human_delay(0.5, 1)
+                    await page.keyboard.press("Control+V")
+                    await _human_delay(2, 3)
+                    
+                except Exception as e:
+                    log.warning("Could not paste into editor, trying direct type: %s", e)
+                    await page.keyboard.type(content, delay=50)
+                
+                # Step 4: Click Post button
+                await _human_delay(2, 3)
+                post_submit_buttons = ["Post", "Submit", "Share", "Publish"]
+                
+                for btn_text in post_submit_buttons:
+                    try:
+                        post_btn = page.get_by_role("button", name=btn_text, exact=False)
+                        if await post_btn.count() > 0:
+                            await post_btn.first.click()
+                            log.info(f"Clicked '{btn_text}'")
+                            break
+                    except Exception:
+                        continue
+                
+                await _human_delay(3, 5)
+                await post_btn.click()
+                await _human_delay(3, 5)
             
-            await post_btn.wait_for(state="visible", timeout=10000)
-            await post_btn.click()
-            await _human_delay(3, 5)
+            log.info("Post complete. URL: %s", page.url)
             
-            log.info("LinkedIn company page post successful!")
             await browser.close()
             
             return {
                 "success": True,
-                "platform": "linkedin",
-                "message": "Post published successfully",
+                "message": "Posted successfully",
+                "url": page.url
             }
-    
+            
     except Exception as e:
-        log.error(f"Failed to post to LinkedIn: {e}")
+        log.exception("Failed to post: %s", e)
         return {"success": False, "error": str(e)}
 
 
 async def post_to_twitter(content: str) -> dict:
-    """
-    Post a single tweet to X/Twitter using saved session.
-    
-    Args:
-        content: The tweet content (max 280 characters)
-    
-    Returns:
-        dict with success status and details
-    """
+    """Post a single tweet to X/Twitter."""
     session_file = SESSIONS_DIR / "twitter_auth.json"
     
     if not session_file.exists():
@@ -149,21 +297,17 @@ async def post_to_twitter(content: str) -> dict:
             context = await browser.new_context(storage_state=str(session_file))
             page = await context.new_page()
             
-            # Navigate to compose tweet
             await page.goto("https://x.com/compose/post")
             await _human_delay(2, 4)
             
-            # Find and fill tweet box
             tweet_box = page.locator('div[data-testid="tweetTextarea_0"]')
             await tweet_box.wait_for(state="visible")
             await tweet_box.click()
             await _human_delay(0.5, 1)
             
-            # Type content
             await tweet_box.fill(content[:280])
             await _human_delay(1, 2)
             
-            # Click Tweet button
             tweet_btn = page.locator('div[data-testid="tweetButton"]')
             await tweet_btn.click()
             await _human_delay(2, 3)
@@ -171,33 +315,21 @@ async def post_to_twitter(content: str) -> dict:
             log.info("Tweet posted successfully!")
             await browser.close()
             
-            return {
-                "success": True,
-                "platform": "twitter",
-                "message": "Tweet posted successfully",
-            }
+            return {"success": True, "platform": "twitter", "message": "Tweet posted successfully"}
     
     except Exception as e:
-        log.error(f"Failed to post to Twitter: {e}")
+        log.error(f"Failed to post to Twitter: %s", e)
         return {"success": False, "error": str(e)}
 
 
 async def post_twitter_thread(tweets: list[str]) -> dict:
-    """
-    Post a thread of tweets to X/Twitter.
-    
-    Args:
-        tweets: List of tweet contents (each max 280 characters)
-    
-    Returns:
-        dict with success status and details
-    """
+    """Post a thread of tweets to X/Twitter."""
     session_file = SESSIONS_DIR / "twitter_auth.json"
     
     if not session_file.exists():
-        return {"success": False, "error": "No Twitter session found. Run auth_generator.py first."}
+        return {"success": False, "error": "No Twitter session found"}
     
-    log.info(f"Posting Twitter thread with {len(tweets)} tweets...")
+    log.info("Posting Twitter thread (%d tweets)...", len(tweets))
     
     try:
         async with async_playwright() as p:
@@ -205,108 +337,52 @@ async def post_twitter_thread(tweets: list[str]) -> dict:
             context = await browser.new_context(storage_state=str(session_file))
             page = await context.new_page()
             
-            posted_urls = []
+            await page.goto("https://x.com/home")
+            await _human_delay(3, 5)
             
             for i, tweet in enumerate(tweets):
-                log.info(f"Posting tweet {i+1}/{len(tweets)}...")
-                
                 if i == 0:
-                    # First tweet: compose new
-                    await page.goto("https://x.com/compose/post")
-                    await _human_delay(2, 4)
-                    
-                    tweet_box = page.locator('div[data-testid="tweetTextarea_0"]')
-                    await tweet_box.wait_for(state="visible")
-                    await tweet_box.click()
-                    await _human_delay(0.5, 1)
-                    await tweet_box.fill(tweet[:280])
-                    await _human_delay(1, 2)
-                    
-                    # Click Tweet button
-                    tweet_btn = page.locator('div[data-testid="tweetButton"]')
-                    await tweet_btn.click()
-                    await _human_delay(2, 3)
-                    
-                else:
-                    # Reply to previous tweet
-                    # Click Reply button on the last tweet
-                    reply_btn = page.locator('div[data-testid="reply"]').last
-                    await reply_btn.click()
-                    await _human_delay(1, 2)
-                    
-                    # Fill reply
-                    reply_box = page.locator('div[data-testid="tweetTextarea_0"]')
-                    await reply_box.wait_for(state="visible")
-                    await reply_box.click()
-                    await _human_delay(0.5, 1)
-                    await reply_box.fill(tweet[:280])
-                    await _human_delay(1, 2)
-                    
-                    # Click Reply button
-                    reply_submit = page.locator('div[data-testid="tweetButton"]')
-                    await reply_submit.click()
-                    await _human_delay(2, 3)
+                    try:
+                        await page.goto("https://x.com/compose/tweet")
+                        await _human_delay(2, 3)
+                    except:
+                        pass
                 
+                tweet_box = page.locator('div[data-testid="tweetTextarea_0"]')
+                await tweet_box.wait_for(state="visible")
+                await tweet_box.fill(tweet[:280])
+                await _human_delay(1, 2)
+                
+                tweet_submit = page.locator('div[data-testid="tweetButton"]')
+                await tweet_submit.click()
                 log.info(f"Tweet {i+1} posted!")
+                
+                await _human_delay(2, 3)
             
             log.info("Twitter thread posted successfully!")
             await browser.close()
             
-            return {
-                "success": True,
-                "platform": "twitter",
-                "tweets_posted": len(tweets),
-                "message": f"Thread with {len(tweets)} tweets posted successfully",
-            }
+            return {"success": True, "platform": "twitter", "message": f"Thread of {len(tweets)} tweets posted"}
     
     except Exception as e:
-        log.error(f"Failed to post Twitter thread: {e}")
+        log.error(f"Failed to post Twitter thread: %s", e)
         return {"success": False, "error": str(e)}
 
 
-# async def post_thread_sequential(tweets: list[str]) -> list[dict]:
-#     """
-#     Post tweets one by one with delays (for manual thread creation).
-    
-#     Args:
-#         tweets: List of tweet contents
-    
-#     Returns:
-#         List of results for each tweet
-#     """
-#     results = []
-    
-#     for i, tweet in enumerate(tweets):
-#         log.info(f"Posting tweet {i+1}/{len(tweets)}...")
-#         result = await post_to_twitter(tweet)
-#         results.append(result)
-        
-#         if not result["success"]:
-#             log.error(f"Failed at tweet {i+1}, stopping thread")
-#             break
-        
-#         # Wait between tweets
-#         if i < len(tweets) - 1:
-#             await _human_delay(3, 5)
-    
-#     return results
-
-
-# CLI interface for manual posting
 if __name__ == "__main__":
     import sys
     
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         print("Usage: python social_bot.py <platform> <content>")
         print("Platforms: linkedin, twitter")
-        print("\nFor Twitter threads, use: python social_bot.py twitter-thread <tweet1> <tweet2> ...")
+        print("\nFor Twitter threads: python social_bot.py twitter-thread <tweet1> <tweet2> ...")
         sys.exit(1)
     
     platform = sys.argv[1].lower()
     content = " ".join(sys.argv[2:])
     
     if platform == "linkedin":
-        result = asyncio.run(post_to_linkedin(content))
+        result = asyncio.run(post_to_linkedin({"body": content}))
     elif platform == "twitter":
         result = asyncio.run(post_to_twitter(content))
     elif platform == "twitter-thread":
@@ -316,7 +392,7 @@ if __name__ == "__main__":
         print(f"Unknown platform: {platform}")
         sys.exit(1)
     
-    if result["success"]:
+    if result.get("success"):
         print(f"\n✓ {platform.upper()} post successful!")
     else:
         print(f"\n✗ {platform.upper()} post failed: {result.get('error')}")

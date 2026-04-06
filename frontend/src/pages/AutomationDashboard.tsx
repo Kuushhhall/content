@@ -36,6 +36,7 @@ interface AutomationStatus {
   cleared_at: string | null
   total_drafts: number
   linkedin_drafts: number
+  linkedin_article_drafts: number
   framer_drafts: number
   x_drafts: number
 }
@@ -183,6 +184,8 @@ export function AutomationDashboard() {
     switch (platform) {
       case 'linkedin': 
         return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      case 'linkedin_article':
+        return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
       case 'framer': return <FileText size={16} />
       case 'x':
       case 'twitter': 
@@ -195,6 +198,7 @@ export function AutomationDashboard() {
   const getPlatformColor = (platform: string) => {
     switch (platform) {
       case 'linkedin': return 'text-blue-400 bg-blue-400/10'
+      case 'linkedin_article': return 'text-indigo-400 bg-indigo-400/10'
       case 'framer': return 'text-purple-400 bg-purple-400/10'
       case 'x':
       case 'twitter': return 'text-sky-400 bg-sky-400/10'
@@ -230,9 +234,11 @@ export function AutomationDashboard() {
   }
 
   const linkedinPosted = posted.filter(p => p.platform === 'linkedin').length
+  const linkedinArticlePosted = posted.filter(p => p.platform === 'linkedin_article').length
   const framerPosted = posted.filter(p => p.platform === 'framer').length
   const xPosted = posted.filter(p => p.platform === 'x').length
   const linkedinTotal = status?.linkedin_drafts || 0
+  const linkedinArticleTotal = status?.linkedin_article_drafts || 0
   const framerTotal = status?.framer_drafts || 0
   const xTotal = status?.x_drafts || 0
 
@@ -334,9 +340,10 @@ export function AutomationDashboard() {
       </section>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard label="Total Drafts" value={status?.total_drafts || 0} />
-        <StatCard label="LinkedIn" value={`${linkedinPosted}/${linkedinTotal}`} color="blue" />
+        <StatCard label="LinkedIn Post" value={`${linkedinPosted}/${linkedinTotal}`} color="blue" />
+        <StatCard label="LinkedIn Article" value={`${linkedinArticlePosted}/${linkedinArticleTotal}`} color="indigo" />
         <StatCard label="Framer" value={`${framerPosted}/${framerTotal}`} color="purple" />
         <StatCard label="X/Twitter" value={`${xPosted}/${xTotal}`} color="sky" />
       </div>
@@ -541,7 +548,8 @@ export function AutomationDashboard() {
       <Card>
         <h3 className="text-sm font-black uppercase tracking-widest mb-4">TODAY'S PROGRESS</h3>
         <div className="space-y-4">
-          <ProgressBar label="LinkedIn" current={linkedinPosted} total={linkedinTotal || 2} color="bg-blue-500" />
+          <ProgressBar label="LinkedIn Post" current={linkedinPosted} total={linkedinTotal || 2} color="bg-blue-500" />
+          <ProgressBar label="LinkedIn Article" current={linkedinArticlePosted} total={linkedinArticleTotal || 2} color="bg-indigo-500" />
           <ProgressBar label="Framer" current={framerPosted} total={framerTotal || 10} color="bg-purple-500" />
           <ProgressBar label="X/Twitter" current={xPosted} total={xTotal || 10} color="bg-sky-500" />
         </div>

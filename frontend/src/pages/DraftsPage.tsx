@@ -24,6 +24,7 @@ function DraftCard({ draft }: { draft: Draft }) {
   const isFramer = draft.platform === 'framer'
   const isX = draft.platform === 'x'
   const isLinkedin = draft.platform === 'linkedin'
+  const isLinkedinArticle = draft.platform === 'linkedin_article'
 
   const plainText = isFramer ? (() => {
     try {
@@ -132,11 +133,15 @@ function DraftCard({ draft }: { draft: Draft }) {
 
         {/* Content */}
         <div className="p-4">
-          {draft.summary && (
+          {(isLinkedinArticle && draft.article_title) ? (
+            <p className={`text-xs font-bold mb-2 text-indigo-400`}>
+              📄 {draft.article_title}
+            </p>
+          ) : draft.summary ? (
             <p className={`text-xs font-medium mb-2 ${isDarkMode ? 'text-dim' : 'text-slate-500'}`}>
               {draft.summary}
             </p>
-          )}
+          ) : null}
 
           {isX && tweets.length > 0 ? (
             <div className="space-y-3">
@@ -199,7 +204,7 @@ function DraftCard({ draft }: { draft: Draft }) {
                 }`}
               >
                 {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-                {isLinkedin ? 'Copy to Clipboard' : isFramer ? 'Copy Content' : 'Copy'}
+                {isLinkedin || isLinkedinArticle ? 'Copy to Clipboard' : isFramer ? 'Copy Content' : 'Copy'}
               </button>
             </div>
           )}
@@ -266,13 +271,15 @@ export function DraftsPage() {
   const platformCounts = {
     all: drafts.length,
     linkedin: drafts.filter(d => d.platform === 'linkedin').length,
+    linkedin_article: drafts.filter(d => d.platform === 'linkedin_article').length,
     x: drafts.filter(d => d.platform === 'x').length,
     framer: drafts.filter(d => d.platform === 'framer').length,
   }
 
   const filters = [
     { key: 'all', label: 'All', count: platformCounts.all },
-    { key: 'linkedin', label: 'LinkedIn', count: platformCounts.linkedin },
+    { key: 'linkedin', label: 'LinkedIn Post', count: platformCounts.linkedin },
+    { key: 'linkedin_article', label: 'LinkedIn Article', count: platformCounts.linkedin_article },
     { key: 'x', label: 'X', count: platformCounts.x },
     { key: 'framer', label: 'Framer', count: platformCounts.framer },
   ]
